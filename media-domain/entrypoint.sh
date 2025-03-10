@@ -4,7 +4,6 @@ glusterd --no-daemon &
 
 sleep 5
 
-# Ensure the data directory exists
 mkdir -p /data/brick
 
 total_hosts=3

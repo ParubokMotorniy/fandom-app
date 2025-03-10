@@ -1,14 +1,15 @@
-FROM debian:latest
+FROM ubuntu:latest
 
 RUN apt-get update && apt-get install -y \
-    glusterfs-server glusterfs-client apache2 bash util-linux coreutils iputils-ping && \
+    glusterfs-server glusterfs-client apache2 apache2-utils bash util-linux coreutils iputils-ping && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
-# Create directories for GlusterFS
+
 RUN mkdir -p /data /mnt/glusterfs && rm -rf /var/cache/apk/*
 
-# Copy entrypoint script
 COPY entrypoint.sh entrypoint.sh
 COPY setup.sh setup.sh
+
+COPY fandomapp.uwu.conf /etc/apache2/sites-available/fandomapp.uwu.conf
 
 RUN chmod +x entrypoint.sh setup.sh
 

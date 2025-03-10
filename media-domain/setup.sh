@@ -5,34 +5,24 @@ MOUNT_PATH="/mnt/glusterfs-root"
 
 mkdir -p "$MOUNT_PATH"
 
-set -x
-
 while ! [ $(gluster volume list) = ${GLUSTER_VOLUME} ];do
-    sleep 1
+    echo "Waiting for volume to get created"
+done
+
+while [ $(gluster volume info | grep Status | cut -d' ' -f2) != "Started" ];do
+    echo "Waiting for voulme to get started"
 done
 
 mount -t glusterfs localhost:/$GLUSTER_VOLUME "$MOUNT_PATH"
+mkdir ${MOUNT_PATH}/media
 
 echo "Configuring Apache to serve media..."
 
-APACHE_CONF="/etc/apache2/sites-available/000-default.conf"
-
-cat <<EOF > "$APACHE_CONF"
-<VirtualHost *:80>
-    DocumentRoot $MOUNT_PATH
-    <Directory $MOUNT_PATH>
-        Options Indexes FollowSymLinks
-        AllowOverride None
-        Require all granted
-    </Directory>
-    ErrorLog \${APACHE_LOG_DIR}/error.log
-    CustomLog \${APACHE_LOG_DIR}/access.log combined
-</VirtualHost>
-EOF
-
-# Enable Apache modules (optional)
 a2enmod rewrite headers
+a2dissite 000-default default-ssl
+a2ensite fandomapp.uwu
 
-echo "Starting Apache..."
+echo "Restarting Apache..."
 service apache2 restart
+
 exec apachectl -D FOREGROUND
