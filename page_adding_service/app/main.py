@@ -2,10 +2,9 @@
 
 from fastapi import FastAPI
 from app.routes import add_page
-import uvicorn
 
 app = FastAPI(
-    title="Page Retrieval Service",
+    title="Page Adding Service",
     description="Service to add content pages and media",
     version="1.0.0",
 )

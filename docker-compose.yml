@@ -19,11 +19,9 @@ services:
     networks:
       - backend
 
-  page_retrieval_service:
+  x-page-retrieval-service: &page_retrieval_service_defaults
     build:
       context: ./page_retrieval_service
-    ports:
-      - "8001:8001"
     depends_on:
       db:
         condition: service_healthy
@@ -36,13 +34,28 @@ services:
     networks:
       - backend
 
+  page_retrieval_service_1:
+    <<: *page_retrieval_service_defaults
+    ports:
+      - "8001:8001"
+
+  page_retrieval_service_2:
+    <<: *page_retrieval_service_defaults
+    ports:
+      - "8003:8001"
+
+  page_retrieval_service_3:
+    <<: *page_retrieval_service_defaults
+    ports:
+      - "8004:8001"
+
   page_adding_service:
     build:
       context: ./page_adding_service
     ports:
       - "8002:8002"
     depends_on:
-      - page_retrieval_service
+      - page_retrieval_service_1 # Changed dependency to page_retrieval_service_1
     networks:
       - backend
 
