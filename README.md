@@ -1,7 +1,7 @@
 # fandom-app
 
 Project structure:
-
+```
 /
 │
 ├── api_gateway/
@@ -62,3 +62,4 @@ Project structure:
 ├── docker-compose.yml
 ├── .env
 └── README.md
+```
