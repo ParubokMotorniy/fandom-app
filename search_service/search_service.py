@@ -1,8 +1,13 @@
 from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.responses import HTMLResponse
+
 import search_results_helper as helper
+
+from pathlib import Path
+
 from elasticsearch import AsyncElasticsearch
 from confluent_kafka import Consumer, KafkaException
+
 import os
 import threading
 import numpy as np
@@ -105,10 +110,10 @@ async def start_search():
     search_service.state.kafka_consumer.subscribe(["user-post-topic"])
 
     search_service.state.elastic_client = AsyncElasticsearch(
-        "https://127.0.0.1:9200",
         #TODO: receive these from Consul 
+        "https://127.0.0.1:9200",
         http_auth=("elastic", os.environ["ES_PASS"]),
-        ca_certs="/home/kaba4ok/Documents/oles_territory/studies_in_Lviv/year3/sem2/software_arch/project/fandom-app/http_ca.crt",
+        ca_certs=str(Path("./http_ca.crt").absolute()),
         verify_certs=True
     )
 
