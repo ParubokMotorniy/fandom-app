@@ -36,12 +36,19 @@ def construct_search_results_page(uris, thumbnails):
 
     return HTMLResponse(content=html_template)
 
-# entry format:
-# - page title
-# - date added
-# - name of creator
-# - uri
-# - html contents stripped of tags, separators, stopwords etc.
+def construct_empty_search_page():
+    html_template = f"""
+    <html>
+    <head>
+        <title>Search Results</title>
+    </head>
+    <body>
+        <h1>No documents matching the query!</h1>
+    </body>
+    </html>
+    """
+    
+    return  HTMLResponse(content=html_template)
 
 def construct_elastic_entry(input_raw_html: str, page_uri: str):
     
@@ -57,7 +64,7 @@ def construct_elastic_entry(input_raw_html: str, page_uri: str):
 
     document = {
         "title":title,
-        "date": str(datetime.datetime.now()),
+        "date": datetime.datetime.now(),
         "author": "anonymous_cappy",
         "uri":page_uri,
         "content":filtered_html
