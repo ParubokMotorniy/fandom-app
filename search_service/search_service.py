@@ -1,24 +1,18 @@
 from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.responses import HTMLResponse
 
-import search_results_helper as helper
+from  . import search_results_helper as helper
 
 from pathlib import Path
 
 from elasticsearch import AsyncElasticsearch
 from confluent_kafka import Consumer, KafkaException
 
+from ..consul import consul_helpers as ch
+
 import os
 import threading
 import numpy as np
-
-#TODO - get this one from consul
-kafka_config = {
-    "bootstrap.servers": "localhost:9096",
-    "group.id": "kafka-servitor",
-    "auto.offset.reset": "earliest",
-    "enable.auto.commit": True,
-}
 
 search_service = FastAPI()
 
@@ -44,7 +38,6 @@ def poll_pages():
             # probably consumer was closed
             print(f"Polling {os.getpid()} stopped!")
             break
-
 
 @search_service.get("/search/get_matches", response_class=HTMLResponse)
 async def search_pages(query_string: str):
@@ -77,7 +70,7 @@ async def search_pages(query_string: str):
     thumbs = [title for title, _ in results]
     return helper.construct_search_results_page(uris, thumbs)
 
-#to be used in debugging purposes
+#to be used in debugging purposes only
 @search_service.post("/search/post_page")
 async def add_page_debug(new_page: UploadFile):
     if new_page.content_type == "text/html":
@@ -101,19 +94,37 @@ async def terminate_search():
     search_service.state.polling_thread.join()
     
     print(f"Search service {os.getpid()} terminated gracefully!")
-
+    
+@search_service.get("/health")
+async def check():
+    return "Search is healthy"
 
 @search_service.on_event("startup")
 async def start_search():
-    search_service.state.kafka_consumer = Consumer(kafka_config)
-    #TODO: receive these from Consul 
-    search_service.state.kafka_consumer.subscribe(["user-post-topic"])
+    general_kafka_config = ch.read_value_for_key("kafka-config")
+    
+    custom_kafka_config = {
+    **general_kafka_config["kafka_parameters"],    
+    "auto.offset.reset": "earliest",
+    "enable.auto.commit": True
+    }
+    
+    search_service.state.kafka_consumer = Consumer(custom_kafka_config)
+    search_service.state.kafka_consumer.subscribe([general_kafka_config["search-topic-name"]])
+    ch.register_consul_service("search", "0", os.environ["INSTANCE_HOST"], int(os.environ["INSTANCE_PORT"]), 30, 60, "/health" )
 
+    elastic_service = ch.get_random_service("elasticsearch")
+    
+    print(elastic_service)
+    
+    if elastic_service == "":
+        print("Search service failed to connect to elastic!")
+        return
+        
     search_service.state.elastic_client = AsyncElasticsearch(
-        #TODO: receive these from Consul 
-        "https://127.0.0.1:9200",
-        http_auth=("elastic", os.environ["ES_PASS"]),
-        ca_certs=str(Path("./http_ca.crt").absolute()),
+        f"https://{elastic_service[0]}:{elastic_service[1]}",
+        http_auth=(os.environ["ELASTIC_USER"], os.environ["ELASTIC_PASSWORD"]),
+        ca_certs=str(Path(__file__).parent/"./http_ca.crt"), #certificates had better be stored locally
         verify_certs=True
     )
 
