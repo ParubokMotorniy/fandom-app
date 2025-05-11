@@ -60,6 +60,44 @@ services:
       ./setup.sh &&
       tail -f /dev/null"
 
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.0.1
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - glusterfs-net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.0.1
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9096:9096"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9096
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9096
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - glusterfs-net
+
+  page-adding-service:
+    build: ./page_adding_service
+    container_name: page_adding_service
+    ports:
+      - "9400:9400"
+    depends_on:
+      - kafka
+    networks:
+      - glusterfs-net
+
+
 volumes:
   glusterfs-data1:
   glusterfs-data2:

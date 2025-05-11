@@ -11,6 +11,7 @@ from confluent_kafka import Consumer, KafkaException
 import os
 import threading
 import numpy as np
+import json
 
 #TODO - get this one from consul
 kafka_config = {
@@ -22,7 +23,7 @@ kafka_config = {
 
 search_service = FastAPI()
 
-def poll_pages():
+async def poll_pages():
     while True:
         try:
             incoming_message = search_service.state.kafka_consumer.poll()
@@ -38,6 +39,30 @@ def poll_pages():
 
                 # messenger_service.state.local_message_map[incoming_message.key().decode('utf-8')] = incoming_message.value().decode('utf-8')
                 # print(f"Messenger {os.getpid()} received message: {incoming_message.key().decode('utf-8')}:{incoming_message.value().decode('utf-8')}")
+
+                message_value = incoming_message.value().decode("utf-8")
+                page_data = json.loads(message_value)
+
+                url = page_data.get("url")
+                html_content = page_data.get("html")
+
+                if not url or not html_content:
+                    print("Received invalid message, missing 'url' or 'html'")
+                    continue
+
+                # Process the HTML content
+                document = helper.construct_elastic_entry(html_content, url)
+
+                # Index the document into Elasticsearch
+                try:
+                    await search_service.state.elastic_client.create(
+                        index=search_service.state.page_index_name,
+                        document=document,
+                        id=np.random.randint(0, 1000000)
+                    )
+                    print(f"Successfully indexed page: {url}")
+                except Exception as e:
+                    print(f"Failed to index page {url}. Error: {e}")
 
                 search_service.state.kafka_consumer.commit(incoming_message)
         except Exception as e:
