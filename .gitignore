@@ -1,0 +1,79 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.env/
+.env.*.local
+
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Logs and debug
+*.log
+*.out
+*.pid
+*.bak
+
+# Unit test / coverage reports
+.coverage
+.tox/
+.nox/
+.pytest_cache/
+.cache/
+coverage.xml
+htmlcov/
+nosetests.xml
+test-results/
+
+# FastAPI / Uvicorn
+*.db
+*.sqlite3
+
+# Docker
+*.tar
+*.img
+*.bak
+docker-compose.override.yml
+
+# Kafka related temp files
+*.log.*
+
+# IDEs
+.vscode/
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS / Misc
+.DS_Store
+Thumbs.db
+
+# Ignore certificates and secrets
+*.crt
+*.key
+*.pem
+http_ca.crt
+
+# Project-specific: compiled files or secrets
+search_service/__pycache__/
+*.pkl
+
+# Ignore media volume data (optional)
+media-domain/data/
