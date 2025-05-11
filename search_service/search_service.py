@@ -132,7 +132,7 @@ async def terminate_search():
 async def start_search():
     search_service.state.kafka_consumer = Consumer(kafka_config)
     #TODO: receive these from Consul 
-    search_service.state.kafka_consumer.subscribe(["user-post-topic"])
+    search_service.state.kafka_consumer.subscribe(["page-search-topic"])
 
     search_service.state.elastic_client = AsyncElasticsearch(
         #TODO: receive these from Consul 

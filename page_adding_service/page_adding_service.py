@@ -5,11 +5,9 @@ import uuid
 import json
 
 app = FastAPI()
-
 kafka_config = {
     "bootstrap.servers": "kafka:9096"
 }
-
 producer = Producer(kafka_config)
 
 class PageData(BaseModel):
@@ -29,8 +27,12 @@ async def add_page(data: PageData):
             "custom_uri": custom_uri
         }
 
-        producer.produce("user-post-topic", json.dumps(payload).encode("utf-8"))
+        producer.produce("page-search-topic", json.dumps(payload).encode("utf-8"))
+
+        producer.produce("page-retrival-topic", json.dumps(payload).encode("utf-8"))
+
         producer.flush(timeout=5)
+
         return {"status": "Page sent to Kafka successfully", "page_id": page_id, "custom_uri": custom_uri}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to send message: {e}")
