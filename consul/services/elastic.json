@@ -1,0 +1,15 @@
+{
+    "id": "elasticsearch",
+    "name": "elasticsearch",
+    "address": "localhost",
+    "port": 9200,
+    "check": {
+        "name": "elastic health check",
+        "http": "https://localhost:9200/",
+        "method": "GET",
+        "tls_skip_verify": true,
+        "interval": "10s",
+        "timeout": "3s",
+        "DeregisterCriticalServiceAfter": "2m"
+    }
+}

@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.responses import HTMLResponse
 
-import search_results_helper as helper
+from  . import search_results_helper as helper
 
 from pathlib import Path
 
@@ -70,7 +70,7 @@ async def search_pages(query_string: str):
     thumbs = [title for title, _ in results]
     return helper.construct_search_results_page(uris, thumbs)
 
-#to be used in debugging purposes
+#to be used in debugging purposes only
 @search_service.post("/search/post_page")
 async def add_page_debug(new_page: UploadFile):
     if new_page.content_type == "text/html":
@@ -110,19 +110,21 @@ async def start_search():
     }
     
     search_service.state.kafka_consumer = Consumer(custom_kafka_config)
-    search_service.state.kafka_consumer.subscribe(general_kafka_config["search-topic-name"])
+    search_service.state.kafka_consumer.subscribe([general_kafka_config["search-topic-name"]])
     ch.register_consul_service("search", "0", os.environ["INSTANCE_HOST"], int(os.environ["INSTANCE_PORT"]), 30, 60, "/health" )
 
-    elastic_service = ch.get_random_service("elastic")
+    elastic_service = ch.get_random_service("elasticsearch")
+    
+    print(elastic_service)
     
     if elastic_service == "":
         print("Search service failed to connect to elastic!")
         return
         
     search_service.state.elastic_client = AsyncElasticsearch(
-        f"http://{elastic_service[0]}:{elastic_service[1]}",
+        f"https://{elastic_service[0]}:{elastic_service[1]}",
         http_auth=(os.environ["ELASTIC_USER"], os.environ["ELASTIC_PASSWORD"]),
-        ca_certs=str(Path("./http_ca.crt").absolute()), #certificates had better be stored locally
+        ca_certs=str(Path(__file__).parent/"./http_ca.crt"), #certificates had better be stored locally
         verify_certs=True
     )
 
