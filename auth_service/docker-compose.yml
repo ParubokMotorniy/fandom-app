@@ -15,9 +15,9 @@ services:
       POSTGRES_HOST: postgres
       INSTANCE_ID: "auth-0"
       INSTANCE_HOST: "auth-service"
-      INSTANCE_PORT: 9400
+      INSTANCE_PORT: 9100
     ports:
-      - "9400:9400"
+      - "9100:9100"
     depends_on:
       - postgres
     networks:

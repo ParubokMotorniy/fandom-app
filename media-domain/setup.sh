@@ -5,16 +5,21 @@ MOUNT_PATH="/mnt/glusterfs-root"
 
 mkdir -p "$MOUNT_PATH"
 
-while ! [ $(gluster volume list) = ${GLUSTER_VOLUME} ];do
+# Wait for volume to be listed
+while [ "$(gluster volume list | grep -w "$GLUSTER_VOLUME")" = "" ]; do
     echo "Waiting for volume to get created"
+    sleep 2
 done
 
-while [ $(gluster volume info | grep Status | cut -d' ' -f2) != "Started" ];do
-    echo "Waiting for voulme to get started"
+# Wait for volume to be started
+while ! gluster volume info "$GLUSTER_VOLUME" | grep -q "Status: Started"; do
+    echo "Waiting for volume to get started"
+    sleep 2
 done
 
+# Mount and setup
 mount -t glusterfs localhost:/$GLUSTER_VOLUME "$MOUNT_PATH"
-mkdir ${MOUNT_PATH}/media
+mkdir -p "$MOUNT_PATH/media"
 
 echo "Configuring Apache to serve media..."
 
