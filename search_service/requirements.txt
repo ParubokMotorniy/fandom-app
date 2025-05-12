@@ -5,4 +5,5 @@ beautifulsoup4==4.13.3
 nltk==3.9.1
 numpy==1.26.4
 aiohttp==3.10.10
+py-consul
 

@@ -103,12 +103,14 @@ async def check():
 async def start_search():
     general_kafka_config = ch.read_value_for_key("kafka-config")
     
+    print(f"Obtained kafka config: {general_kafka_config}")
+    
     custom_kafka_config = {
     **general_kafka_config["kafka_parameters"],    
     "auto.offset.reset": "earliest",
     "enable.auto.commit": True
     }
-    
+        
     search_service.state.kafka_consumer = Consumer(custom_kafka_config)
     search_service.state.kafka_consumer.subscribe([general_kafka_config["search-topic-name"]])
     ch.register_consul_service("search", "0", os.environ["INSTANCE_HOST"], int(os.environ["INSTANCE_PORT"]), 30, 60, "/health" )

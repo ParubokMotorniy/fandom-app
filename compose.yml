@@ -60,6 +60,61 @@ services:
       ./setup.sh &&
       tail -f /dev/null"
 
+  consul:
+    image: hashicorp/consul:latest
+    container_name: consul
+    hostname: consul
+    ports:
+      - "8500:8500"       
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.2
+    command: "agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0"
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.5
+    container_name: elasticsearch
+    hostname: elasticsearch
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.4
+    ports:
+      - "9200:9200" 
+    environment:
+      # - discovery.type=single-node
+      # - xpack.security.enabled=true
+      - CONSUL_PORT=8500
+      - CONSUL_HOST=192.168.56.2 
+      # - xpack.security.http.ssl.enabled=true
+      # - ELASTIC_PASSWORD="BY7jIjwEm0UCNo_Y19wa" 
+
+  search:
+    build: ./search_service/
+    container_name: search-service
+    hostname: searh-service
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.3
+    ports:
+      - "9300:9300"
+    environment:
+      - CONSUL_PORT=8500
+      - CONSUL_HOST=192.168.56.2 
+      - ELASTIC_PASSWORD="5Vc-5JwbPl5dLouhzXM5" 
+      - ELASTIC_USER="elastic" 
+      - INSTANCE_HOST=192.168.56.2 
+      - INSTANCE_PORT=9300
+
+  subscriber:
+    build: ./consul/
+    container_name: dummy-subscriber
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.5
+    environment:
+      - CONSUL_PORT=8500
+      - CONSUL_HOST=192.168.56.2 
+
 volumes:
   glusterfs-data1:
   glusterfs-data2:
@@ -71,3 +126,10 @@ networks:
     ipam:
       config:
         - subnet: 192.168.1.0/24
+
+  shared-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.56.0/24
+
