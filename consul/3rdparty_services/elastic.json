@@ -1,7 +1,7 @@
 {
     "id": "elasticsearch",
     "name": "elasticsearch",
-    "address": "localhost",
+    "address": "192.168.56.3",
     "port": 9200,
     "check": {
         "name": "elastic health check",
