@@ -60,6 +60,61 @@ services:
       ./setup.sh &&
       tail -f /dev/null"
 
+  consul:
+    image: hashicorp/consul:latest
+    container_name: consul
+    hostname: consul
+    ports:
+      - "8500:8500"
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.2
+    command: "agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0"
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.5
+    container_name: elasticsearch
+    hostname: elasticsearch
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.4
+    ports:
+      - "9200:9200"
+    environment:
+      # - discovery.type=single-node
+      # - xpack.security.enabled=true
+      - CONSUL_PORT=8500
+      - CONSUL_HOST=192.168.56.2
+      # - xpack.security.http.ssl.enabled=true
+      # - ELASTIC_PASSWORD="BY7jIjwEm0UCNo_Y19wa"
+
+  search:
+    build: ./search_service/
+    container_name: search-service
+    hostname: searh-service
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.3
+    ports:
+      - "9300:9300"
+    environment:
+      - CONSUL_PORT=8500
+      - CONSUL_HOST=192.168.56.2
+      - ELASTIC_PASSWORD="5Vc-5JwbPl5dLouhzXM5"
+      - ELASTIC_USER="elastic"
+      - INSTANCE_HOST=192.168.56.2
+      - INSTANCE_PORT=9300
+
+  subscriber:
+    build: ./consul/
+    container_name: dummy-subscriber
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.5
+    environment:
+      - CONSUL_PORT=8500
+      - CONSUL_HOST=192.168.56.2
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.0.1
     container_name: zookeeper
@@ -67,7 +122,7 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     networks:
-      - glusterfs-net
+      - shared-net
 
   kafka:
     image: confluentinc/cp-kafka:7.0.1
@@ -85,7 +140,7 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     networks:
-      - glusterfs-net
+      - shared-net
 
   page-adding-service:
     build: ./page_adding_service
@@ -95,7 +150,7 @@ services:
     depends_on:
       - kafka
     networks:
-      - glusterfs-net
+      - shared-net
 
 
 volumes:
@@ -109,3 +164,10 @@ networks:
     ipam:
       config:
         - subnet: 192.168.1.0/24
+
+  shared-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.56.0/24
+
