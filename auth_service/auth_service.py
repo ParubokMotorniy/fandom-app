@@ -9,8 +9,7 @@ import os
 import uuid
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from ..consul import consul_helpers as ch
-
+from consul_h import consul_helpers as ch
 SECRET_KEY = os.getenv("SECRET_KEY", "your_secret_key")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
