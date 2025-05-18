@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Create Your Page</title>
+  <style>
+    body { font-family: Arial; max-width: 600px; margin: auto; padding: 20px; }
+    h1 { color: #333; }
+    label { display: block; margin-top: 15px; }
+    input, textarea { width: 100%; padding: 10px; margin-top: 5px; }
+    button { margin-top: 20px; padding: 10px 20px; background-color: #4CAF50; color: white; border: none; }
+  </style>
+</head>
+<body>
+  <h1>Add Your Page</h1>
+  <form id="pageForm">
+    <label>Username:</label>
+    <input type="text" id="username" required />
+
+    <label>Password:</label>
+    <input type="password" id="password" required />
+
+    <label>Text Description:</label>
+    <textarea id="description" rows="4" required></textarea>
+
+    <label>Image (optional):</label>
+    <input type="file" id="image" accept="image/*" />
+
+    <button type="submit">Submit Page</button>
+  </form>
+
+  <script>
+    document.getElementById("pageForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const username = document.getElementById("username").value;
+      const password = document.getElementById("password").value;
+      const description = document.getElementById("description").value;
+      const imageFile = document.getElementById("image").files[0];
+
+      const loginResponse = await fetch('/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ username, password })
+      });
+
+      if (!loginResponse.ok) {
+        alert("Login failed!");
+        return;
+      }
+
+      const { token } = await loginResponse.json(); // assume it returns a token
+      if (!token) {
+        alert("Authentication token missing!");
+        return;
+      }
+
+      let imageTag = '';
+      if (imageFile) {
+        const reader = new FileReader();
+        reader.onload = async function () {
+          imageTag = `<img src="${reader.result}" style="max-width:100%"/>`;
+
+          const htmlContent = `
+            <h1>Description</h1>
+            <p>${description}</p>
+            <h1>Image</h1>
+            ${imageTag}
+          `;
+
+          const uploadRes = await fetch('/upload', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ html: htmlContent })
+          });
+
+          if (uploadRes.ok) {
+            alert("Page submitted successfully!");
+          } else {
+            alert("Failed to submit page.");
+          }
+        };
+        reader.readAsDataURL(imageFile);
+      } else {
+        const htmlContent = `
+          <h1>Description</h1>
+          <p>${description}</p>
+          <h1>Image</h1>
+          <p>No image provided.</p>
+        `;
+
+        const uploadRes = await fetch('/upload', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ html: htmlContent })
+        });
+
+        if (uploadRes.ok) {
+          alert("Page submitted successfully!");
+        } else {
+          alert("Failed to submit page.");
+        }
+      }
+    });
+  </script>
+</body>
+</html>

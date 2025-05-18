@@ -81,11 +81,8 @@ services:
     ports:
       - "9200:9200" 
     environment:
-      # - discovery.type=single-node
-      # - xpack.security.enabled=true
       - CONSUL_PORT=8500
       - CONSUL_HOST=192.168.56.2 
-      # - xpack.security.http.ssl.enabled=true
       - ELASTIC_PASSWORD=lyfAKzoo0NYA17iIBmv4
   
   # this service merely pushes all configs/services to the consul during startup
@@ -125,20 +122,91 @@ services:
       - INSTANCE_HOST=192.168.56.2 
       - INSTANCE_PORT=9300
 
+  dummy-page-retriever-1:
+    image: python:3.11-alpine
+    container_name: page-retriever-1
+    hostname: page-retriever-1
+    expose:
+      - 8000
+    ports:
+      - "8001:8000"
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.7
+    command: python3 -m http.server 8000
+
+  dummy-page-retriever-2:
+    image: python:3.11-alpine
+    container_name: page-retriever-2
+    hostname: page-retriever-2
+    expose:
+      - 8000
+    ports:
+      - "8002:8000"
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.8
+    command: python3 -m http.server 8000
+
+  dummy-page-retriever-3:
+    image: python:3.11-alpine
+    container_name: page-retriever-3
+    hostname: page-retriever-3
+    expose:
+      - 8000
+    ports:
+      - "8003:8000"
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.9
+    command: python3 -m http.server 8000
+
+  dummy-page-adder:
+    image: python:3.11-alpine
+    container_name: page-adder
+    hostname: page-adder
+    expose:
+      - 8000
+    ports:
+      - "8004:8000"
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.10
+    command: python3 -m http.server 8000
+
+  dummy-auth-service:
+    image: python:3.11-alpine
+    container_name: auth-service
+    hostname: auth-service
+    expose:
+      - 8000
+    ports:
+      - "8005:8000"
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.11
+    command: python3 -m http.server 8000
+
   # TODO: add kafka on 192.168.56.5 
 
   api-gateway:
     image: nginx:latest
     container_name: api-gateway
     hostname: api-gateway
-    # depends_on: TODO: add dependence on other backend services
+    depends_on:
+      - dummy-page-retriever-1
+      - dummy-page-retriever-2
+      - dummy-page-retriever-3
+      - dummy-page-adder
+      - dummy-auth-service
     ports:
-      - "80:80"
+      - "8100:80"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/configs/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/static:/usr/share/nginx/html
     networks:
       shared-net:
-        ipv4_address: 192.168.56.10
+        ipv4_address: 192.168.56.12
 
 volumes:
   glusterfs-data1:
