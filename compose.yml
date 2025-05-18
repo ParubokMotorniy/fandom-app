@@ -86,12 +86,32 @@ services:
       - CONSUL_PORT=8500
       - CONSUL_HOST=192.168.56.2 
       # - xpack.security.http.ssl.enabled=true
-      - ELASTIC_PASSWORD="lyfAKzoo0NYA17iIBmv4" 
+      - ELASTIC_PASSWORD=lyfAKzoo0NYA17iIBmv4
+  
+  # this service merely pushes all configs/services to the consul during startup
+  subscriber:
+    build: ./consul/
+    container_name: dummy-subscriber
+    depends_on:
+      - consul
+      - elasticsearch
+      # - kafka
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.6
+    environment:
+      - CONSUL_PORT=8500
+      - CONSUL_HOST=192.168.56.2 
 
   search:
     build: ./search_service/
     container_name: search-service
     hostname: searh-service
+    depends_on:
+      - consul
+      - subscriber
+      - elasticsearch
+      #- kafka
     networks:
       shared-net:
         ipv4_address: 192.168.56.3
@@ -100,22 +120,25 @@ services:
     environment:
       - CONSUL_PORT=8500
       - CONSUL_HOST=192.168.56.2 
-      - ELASTIC_PASSWORD="lyfAKzoo0NYA17iIBmv4" 
-      - ELASTIC_USER="elastic" 
+      - ELASTIC_PASSWORD=lyfAKzoo0NYA17iIBmv4
+      - ELASTIC_USER=elastic
       - INSTANCE_HOST=192.168.56.2 
       - INSTANCE_PORT=9300
-  
+
   # TODO: add kafka on 192.168.56.5 
 
-  subscriber:
-    build: ./consul/
-    container_name: dummy-subscriber
+  api-gateway:
+    image: nginx:latest
+    container_name: api-gateway
+    hostname: api-gateway
+    # depends_on: TODO: add dependence on other backend services
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     networks:
       shared-net:
-        ipv4_address: 192.168.56.6
-    environment:
-      - CONSUL_PORT=8500
-      - CONSUL_HOST=192.168.56.2 
+        ipv4_address: 192.168.56.10
 
 volumes:
   glusterfs-data1:

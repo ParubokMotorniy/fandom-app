@@ -4,13 +4,15 @@ from fastapi.responses import HTMLResponse
 
 from bs4 import BeautifulSoup
 import string
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
-import nltk
 import datetime
 
+import nltk
 nltk.download('punkt')
+nltk.download('punkt_tab')
 nltk.download('stopwords')
+
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
 
 def construct_search_results_page(uris, thumbnails):
     assert len(uris) == len(thumbnails), "URIs and thumbnails must match in length"

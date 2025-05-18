@@ -9,6 +9,7 @@ COPY ./__init__.py /search_service/
 WORKDIR /search_service/search
 
 RUN pip install -r ./requirements.txt
+RUN python -m nltk.downloader punkt stopwords punkt_tab
 
 EXPOSE 9300
 

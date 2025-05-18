@@ -51,7 +51,7 @@ async def search_pages(query_string: str):
             _source=["title", "uri"],
         )
     except Exception as e:
-        print(f"Failed to query db for matching pages. Details: {e}")
+        raise HTTPException(501, f"Failed to query db for matching pages. Details: {e}")
 
     print(f"Raw search result: {response}")
 
@@ -85,6 +85,8 @@ async def add_page_debug(new_page: UploadFile):
         except Exception as e:
             print(f"Failed to index a page. Details: {e}")
             raise HTTPException(status_code=503, detail="Some elasticsearch error!")
+    else:
+        raise HTTPException(status_code=404, detail="Only html/text files are accepted!")
 
 
 @search_service.on_event("shutdown")
