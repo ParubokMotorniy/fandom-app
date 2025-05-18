@@ -1,0 +1,15 @@
+{
+    "id": "kafka",
+    "name": "kafka",
+    "address": "192.168.56.5",
+    "port": 9092,
+    "check": {
+        "name": "kafka health check",
+        "http": "http://192.168.56.5:9092/",
+        "method": "GET",
+        "tls_skip_verify": true,
+        "interval": "10s",
+        "timeout": "3s",
+        "DeregisterCriticalServiceAfter": "2m"
+    }
+}

@@ -1,6 +1,17 @@
 version: "3.9"
 
 services:
+  consul:
+    image: hashicorp/consul:latest
+    container_name: consul
+    hostname: consul
+    ports:
+      - "8500:8500"       
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.2
+    command: "agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0"
+
   glusterfs-node1:
     build: ./media-domain/
     container_name: glusterfs-node1
@@ -60,17 +71,6 @@ services:
       ./setup.sh &&
       tail -f /dev/null"
 
-  consul:
-    image: hashicorp/consul:latest
-    container_name: consul
-    hostname: consul
-    ports:
-      - "8500:8500"       
-    networks:
-      shared-net:
-        ipv4_address: 192.168.56.2
-    command: "agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0"
-
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.17.5
     container_name: elasticsearch
@@ -86,7 +86,7 @@ services:
       - CONSUL_PORT=8500
       - CONSUL_HOST=192.168.56.2 
       # - xpack.security.http.ssl.enabled=true
-      # - ELASTIC_PASSWORD="BY7jIjwEm0UCNo_Y19wa" 
+      - ELASTIC_PASSWORD="lyfAKzoo0NYA17iIBmv4" 
 
   search:
     build: ./search_service/
@@ -100,17 +100,19 @@ services:
     environment:
       - CONSUL_PORT=8500
       - CONSUL_HOST=192.168.56.2 
-      - ELASTIC_PASSWORD="5Vc-5JwbPl5dLouhzXM5" 
+      - ELASTIC_PASSWORD="lyfAKzoo0NYA17iIBmv4" 
       - ELASTIC_USER="elastic" 
       - INSTANCE_HOST=192.168.56.2 
       - INSTANCE_PORT=9300
+  
+  # TODO: add kafka on 192.168.56.5 
 
   subscriber:
     build: ./consul/
     container_name: dummy-subscriber
     networks:
       shared-net:
-        ipv4_address: 192.168.56.5
+        ipv4_address: 192.168.56.6
     environment:
       - CONSUL_PORT=8500
       - CONSUL_HOST=192.168.56.2 

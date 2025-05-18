@@ -101,6 +101,23 @@ async def check():
 
 @search_service.on_event("startup")
 async def start_search():
+    #elastic
+    elastic_service = ch.get_random_service("elasticsearch")
+    
+    print(f"Obtained elastic config: {elastic_service}")
+    
+    if elastic_service == None:
+        print("Search service failed to connect to elastic!")
+        return
+        
+    search_service.state.elastic_client = AsyncElasticsearch(
+        f"https://{elastic_service[0]}:{elastic_service[1]}",
+        http_auth=(os.environ["ELASTIC_USER"], os.environ["ELASTIC_PASSWORD"]),
+        ca_certs=str(Path(__file__).parent/"./http_ca.crt"), #certificates had better be stored locally
+        verify_certs=True
+    )
+    
+    #kafka
     general_kafka_config = ch.read_value_for_key("kafka-config")
     
     print(f"Obtained kafka config: {general_kafka_config}")
@@ -113,22 +130,9 @@ async def start_search():
         
     search_service.state.kafka_consumer = Consumer(custom_kafka_config)
     search_service.state.kafka_consumer.subscribe([general_kafka_config["search-topic-name"]])
+    
+    #sevice-specific stuff
     ch.register_consul_service("search", "0", os.environ["INSTANCE_HOST"], int(os.environ["INSTANCE_PORT"]), 30, 60, "/health" )
-
-    elastic_service = ch.get_random_service("elasticsearch")
-    
-    print(elastic_service)
-    
-    if elastic_service == "":
-        print("Search service failed to connect to elastic!")
-        return
-        
-    search_service.state.elastic_client = AsyncElasticsearch(
-        f"https://{elastic_service[0]}:{elastic_service[1]}",
-        http_auth=(os.environ["ELASTIC_USER"], os.environ["ELASTIC_PASSWORD"]),
-        ca_certs=str(Path(__file__).parent/"./http_ca.crt"), #certificates had better be stored locally
-        verify_certs=True
-    )
 
     search_service.state.polling_thread = threading.Thread(
         target=poll_pages, name="Poller", daemon=True

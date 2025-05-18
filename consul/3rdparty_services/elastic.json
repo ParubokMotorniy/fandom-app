@@ -1,11 +1,11 @@
 {
     "id": "elasticsearch",
     "name": "elasticsearch",
-    "address": "192.168.56.3",
+    "address": "192.168.56.4",
     "port": 9200,
     "check": {
         "name": "elastic health check",
-        "http": "https://localhost:9200/",
+        "http": "https://elastic:lyfAKzoo0NYA17iIBmv4@192.168.56.4:9200/",
         "method": "GET",
         "tls_skip_verify": true,
         "interval": "10s",
