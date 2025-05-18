@@ -4,108 +4,130 @@
   <meta charset="UTF-8" />
   <title>Create Your Page</title>
   <style>
-    body { font-family: Arial; max-width: 600px; margin: auto; padding: 20px; }
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; }
     h1 { color: #333; }
     label { display: block; margin-top: 15px; }
     input, textarea { width: 100%; padding: 10px; margin-top: 5px; }
-    button { margin-top: 20px; padding: 10px 20px; background-color: #4CAF50; color: white; border: none; }
+    button { margin-top: 15px; padding: 10px 20px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
+    button:disabled { background-color: #aaa; cursor: not-allowed; }
+    #auth-status { margin-top: 10px; font-weight: bold; color: green; }
   </style>
 </head>
 <body>
-  <h1>Add Your Page</h1>
-  <form id="pageForm">
+  <h1>Add your web page!</h1>
+
+  <form id="authForm">
     <label>Username:</label>
     <input type="text" id="username" required />
 
     <label>Password:</label>
     <input type="password" id="password" required />
 
-    <label>Text Description:</label>
+    <button type="submit" id="loginButton">Login</button>
+    <div id="auth-status"></div>
+  </form>
+
+  <hr>
+
+  <form id="pageForm">
+    <label>Page Description:</label>
     <textarea id="description" rows="4" required></textarea>
 
-    <label>Image (optional):</label>
+    <label>Optional Image:</label>
     <input type="file" id="image" accept="image/*" />
 
-    <button type="submit">Submit Page</button>
+    <button type="submit" id="submitButton" disabled>Submit Page</button>
   </form>
 
   <script>
-    document.getElementById("pageForm").addEventListener("submit", async function (e) {
+    let authToken = null;
+
+    // Step 1: Handle login form
+    document.getElementById("authForm").addEventListener("submit", async function (e) {
       e.preventDefault();
 
       const username = document.getElementById("username").value;
       const password = document.getElementById("password").value;
-      const description = document.getElementById("description").value;
-      const imageFile = document.getElementById("image").files[0];
 
-      const loginResponse = await fetch('/login', {
+      const loginRes = await fetch('/login', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ username, password })
       });
 
-      if (!loginResponse.ok) {
-        alert("Login failed!");
+      if (!loginRes.ok) {
+        document.getElementById("auth-status").textContent = "Login failed.";
+        document.getElementById("auth-status").style.color = "red";
+        authToken = null;
+        document.getElementById("submitButton").disabled = true;
         return;
       }
 
-      const { token } = await loginResponse.json(); // assume it returns a token
-      if (!token) {
-        alert("Authentication token missing!");
+      const data = await loginRes.json();
+      if (data.token) {
+        authToken = data.token;
+        document.getElementById("auth-status").textContent = "Logged in.";
+        document.getElementById("auth-status").style.color = "green";
+        document.getElementById("submitButton").disabled = false;
+      } else {
+        document.getElementById("auth-status").textContent = "Login failed: token missing.";
+        document.getElementById("auth-status").style.color = "red";
+        document.getElementById("submitButton").disabled = true;
+      }
+    });
+
+    // Step 2: Handle page creation and submission
+    document.getElementById("pageForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      if (!authToken) {
+        alert("You must login first.");
         return;
       }
 
-      let imageTag = '';
-      if (imageFile) {
-        const reader = new FileReader();
-        reader.onload = async function () {
-          imageTag = `<img src="${reader.result}" style="max-width:100%"/>`;
+      const description = document.getElementById("description").value;
+      const imageFile = document.getElementById("image").files[0];
 
-          const htmlContent = `
-            <h1>Description</h1>
-            <p>${description}</p>
-            <h1>Image</h1>
-            ${imageTag}
-          `;
-
-          const uploadRes = await fetch('/upload', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ html: htmlContent })
-          });
-
-          if (uploadRes.ok) {
+      function sendPage(htmlContent) {
+        fetch('/upload', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({ html: htmlContent })
+        })
+        .then(res => {
+          if (res.ok) {
             alert("Page submitted successfully!");
           } else {
             alert("Failed to submit page.");
           }
+        })
+        .catch(() => alert("Network error during page submission."));
+      }
+
+      if (imageFile) {
+        const reader = new FileReader();
+        reader.onload = function () {
+          const imageTag = `<img src="${reader.result}" style="max-width:100%;" />`;
+          const htmlContent = `
+            <h1>Lore</h1>
+            <p>${description}</p>
+            <h1>Image</h1>
+            ${imageTag}
+          `;
+          sendPage(htmlContent);
         };
         reader.readAsDataURL(imageFile);
       } else {
         const htmlContent = `
-          <h1>Description</h1>
+          <h1>Lore</h1>
           <p>${description}</p>
           <h1>Image</h1>
           <p>No image provided.</p>
         `;
-
-        const uploadRes = await fetch('/upload', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ html: htmlContent })
-        });
-
-        if (uploadRes.ok) {
-          alert("Page submitted successfully!");
-        } else {
-          alert("Failed to submit page.");
-        }
+        sendPage(htmlContent);
       }
     });
   </script>
