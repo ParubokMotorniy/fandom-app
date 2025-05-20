@@ -5,3 +5,5 @@ uvicorn[standard]
 httpx
 asyncpg
 pydantic
+confluent-kafka
+py-consul

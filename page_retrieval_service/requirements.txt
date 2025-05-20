@@ -7,3 +7,5 @@ psycopg2-binary
 uvicorn[standard]
 pydantic
 asyncpg
+confluent-kafka
+py-consul

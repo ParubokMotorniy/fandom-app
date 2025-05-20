@@ -5,6 +5,7 @@ from app.routes.pages import router as pages_router
 from app.db.connection import engine
 from app.models.page import Base
 import uvicorn
+from app.services.retrieval import start_kafka_consumer, stop_kafka_consumer
 
 app = FastAPI(
     title="Page Retrieval Service",
@@ -18,12 +19,17 @@ app.include_router(pages_router, prefix="/api", tags=["Pages"])
 async def startup_event():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
     print("✅ Page Retrieval Service starting up...")
+    # Start Kafka consumer
+    start_kafka_consumer()
 
 @app.on_event("shutdown")
-def shutdown_event():
+async def shutdown_event():
     engine.dispose()
     print("🛑 Page Retrieval Service shutting down...")
+    # Stop Kafka consumer
+    stop_kafka_consumer()
 
 # if __name__ == "__main__":
 #     uvicorn.run("app.main:app", host="0.0.0.0", port=8001, reload=True)

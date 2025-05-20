@@ -8,7 +8,9 @@ router = APIRouter()
 
 @router.post("/add-page")
 async def add_page(request: PageCreate):
-    success = await forward_page_to_retrieval_service(request)
+    success = forward_page_to_retrieval_service(request)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to add page")
+    
+    print("Page added successfully")
     return {"message": "Page added successfully"}

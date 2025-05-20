@@ -10,6 +10,7 @@
         "tls_skip_verify": true,
         "interval": "10s",
         "timeout": "3s",
+        "args": ["kafka-topics.sh", "--bootstrap-server", "localhost:9092", "--list"],
         "DeregisterCriticalServiceAfter": "2m"
     }
 }

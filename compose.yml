@@ -12,6 +12,43 @@ services:
         ipv4_address: 192.168.56.2
     command: "agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0"
 
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    hostname: zookeeper
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.12
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    hostname: kafka
+    ports:
+      - "9092:9092"
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.5
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://192.168.56.5:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_MESSAGE_MAX_BYTES: 1048576000
+      KAFKA_REPLICA_FETCH_MAX_BYTES: 1048576000
+      KAFKA_MAX_REQUEST_SIZE: 1048576000
+    depends_on:
+      - zookeeper
+
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.17.5
     container_name: elasticsearch
@@ -33,7 +70,8 @@ services:
     depends_on:
       - consul
       - elasticsearch
-      # - kafka
+      - kafka
+      - zookeeper
     networks:
       shared-net:
         ipv4_address: 192.168.56.6
@@ -49,7 +87,8 @@ services:
       - consul
       - subscriber
       - elasticsearch
-      #- kafka
+      - kafka
+      - zookeeper
     networks:
       shared-net:
         ipv4_address: 192.168.56.3
@@ -63,29 +102,39 @@ services:
       - INSTANCE_HOST=192.168.56.2 
       - INSTANCE_PORT=9300
 
-  dummy-page-adder:
-    image: python:3.11-alpine
-    container_name: page-adder
-    hostname: page-adder
-    expose:
-      - 8000
-    ports:
-      - "8001:8000"
-    networks:
-      shared-net:
-        ipv4_address: 192.168.56.10
-    command: python3 -m http.server 8000
-
-  # page_adding_service:
-  #   build:
-  #     context: ./page_adding_service
+  # dummy-page-adder:
+  #   image: python:3.11-alpine
+  #   container_name: page-adder
+  #   hostname: page-adder
+  #   expose:
+  #     - 8000
   #   ports:
-  #     - "8001:8002"
-  #   depends_on:
-  #     - page_retrieval_service_1 # Changed dependency to page_retrieval_service_1
+  #     - "8001:8000"
   #   networks:
   #     shared-net:
   #       ipv4_address: 192.168.56.10
+  #   command: python3 -m http.server 8000
+
+  page_adding_service:
+    build:
+      context: ./page_adding_service
+    ports:
+      - "8002:8002"
+    depends_on:
+      - consul
+      - subscriber
+      - kafka
+      - zookeeper
+      - page_retrieval_service_1
+      - page_retrieval_service_2
+      - page_retrieval_service_3
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.10
+    environment:
+      - CONSUL_HOST=192.168.56.2
+      - CONSUL_PORT=8500
+
   dummy-auth-service:
     image: python:3.11-alpine
     container_name: auth-service
@@ -93,13 +142,12 @@ services:
     expose:
       - 8000
     ports:
-      - "8002:8000"
+      - "8006:8000"
     networks:
       shared-net:
         ipv4_address: 192.168.56.11
     command: python3 -m http.server 8000
 
-  # TODO: add kafka on 192.168.56.5 
   db:
     image: postgres:14
     environment:
@@ -117,6 +165,7 @@ services:
       - "5432:5432"
     networks:
       - backend
+      - shared-net
 
   x-page-retrieval-service: &page_retrieval_service_defaults
     build:
@@ -124,12 +173,18 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      kafka:
+        condition: service_started
+      zookeeper:
+        condition: service_started
     environment:
       DB_HOST: db
       DB_PORT: 5432
       DB_NAME: mydb
       DB_USER: myuser
       DB_PASSWORD: mypassword
+      CONSUL_HOST: 192.168.56.2
+      CONSUL_PORT: 8500
 
   page_retrieval_service_1:
     <<: *page_retrieval_service_defaults
@@ -169,7 +224,7 @@ services:
       - page_retrieval_service_1
       - page_retrieval_service_2
       - page_retrieval_service_3
-      - dummy-page-adder
+      - page_adding_service
       - dummy-auth-service
       - search-service
     ports:
