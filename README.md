@@ -10,11 +10,18 @@
 + Both the basic frontend and nginx assume that the user is now only capable of uploading simple html files with embedded images.
 
 Old design:
-
 ![old](https://github.com/user-attachments/assets/57c50d6f-8519-491a-89c0-198dae81d249)
 
 Refactored design:
-
 ![new](https://github.com/user-attachments/assets/d8e56c42-de4f-4025-a1a1-1562160d7b73)
 
 
+
+## Services
+
+| Service | Ports | Method | Endpoint | Description |
+|---|---|---|---|---|
+| Page Retrieval Service | 8001, 8003, 8004  | GET  | `/api/page/{page_id}`      | Retrieves the content of a specific page based on its ID. |
+|                        |                   | POST | `/api/internal/store-page` | idk |
+|                        |                   | GET  | `/api/pages/`              | Returns a list of all available pages. |
+| Page Adding Service    | 8002              | POST | `/api/add-page`            | Adds a new page to the DB. |

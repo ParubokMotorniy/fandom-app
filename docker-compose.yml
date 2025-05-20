@@ -1,0 +1,66 @@
+# version: '3.9'
+
+# services:
+#   db:
+#     image: postgres:14
+#     environment:
+#       POSTGRES_USER: myuser
+#       POSTGRES_PASSWORD: mypassword
+#       POSTGRES_DB: mydb
+#     healthcheck:
+#       test: ["CMD-SHELL", "pg_isready -U myuser -d mydb"]
+#       interval: 5s
+#       timeout: 5s
+#       retries: 5
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+#     ports:
+#       - "5432:5432"
+#     networks:
+#       - backend
+
+#   x-page-retrieval-service: &page_retrieval_service_defaults
+#     build:
+#       context: ./page_retrieval_service
+#     depends_on:
+#       db:
+#         condition: service_healthy
+#     environment:
+#       DB_HOST: db
+#       DB_PORT: 5432
+#       DB_NAME: mydb
+#       DB_USER: myuser
+#       DB_PASSWORD: mypassword
+#     networks:
+#       - backend
+
+#   page_retrieval_service_1:
+#     <<: *page_retrieval_service_defaults
+#     ports:
+#       - "8001:8001"
+
+#   page_retrieval_service_2:
+#     <<: *page_retrieval_service_defaults
+#     ports:
+#       - "8003:8001"
+
+#   page_retrieval_service_3:
+#     <<: *page_retrieval_service_defaults
+#     ports:
+#       - "8004:8001"
+
+#   page_adding_service:
+#     build:
+#       context: ./page_adding_service
+#     ports:
+#       - "8002:8002"
+#     depends_on:
+#       - page_retrieval_service_1 # Changed dependency to page_retrieval_service_1
+#     networks:
+#       - backend
+
+# volumes:
+#   postgres_data:
+
+# networks:
+#   backend:
