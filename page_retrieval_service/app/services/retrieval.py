@@ -24,6 +24,7 @@ async def save_page_to_db(page_data: dict) -> bool:
                 title=page_data["title"],
                 content=page_data["html"]
             )
+            print(f"Adding new page with id: {new_page.id}")
             session.add(new_page)
             await session.commit()
             return True

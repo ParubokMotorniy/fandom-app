@@ -12,65 +12,6 @@ services:
         ipv4_address: 192.168.56.2
     command: "agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0"
 
-  # glusterfs-node1:
-  #   build: ./media-domain/
-  #   container_name: glusterfs-node1
-  #   hostname: glusterfs-node1
-  #   volumes:
-  #     - glusterfs-data1:/data
-  #   networks:
-  #     glusterfs-net:
-  #       ipv4_address: 192.168.1.11
-  #   privileged: true
-  #   ports:
-  #     - "8081:80"
-  #   command: >
-  #     /bin/sh -c "
-  #     ./entrypoint.sh glusterfs-node2 glusterfs-node3 &&
-
-  #     gluster volume create gv0 replica 3 transport tcp glusterfs-node1:/data/brick glusterfs-node2:/data/brick glusterfs-node3:/data/brick force &&
-  #     gluster volume start gv0 &&
-  #     gluster volume info &&
-
-  #     ./setup.sh &&
-  #     tail -f /dev/null"
-
-  # glusterfs-node2:
-  #   build: ./media-domain/
-  #   container_name: glusterfs-node2
-  #   hostname: glusterfs-node2
-  #   volumes:
-  #     - glusterfs-data2:/data
-  #   networks:
-  #     glusterfs-net:
-  #       ipv4_address: 192.168.1.12
-  #   privileged: true
-  #   ports:
-  #     - "8082:80"
-  #   command: >
-  #     /bin/sh -c "
-  #     ./entrypoint.sh glusterfs-node1 &&
-  #     ./setup.sh &&
-  #     tail -f /dev/null"
-
-  # glusterfs-node3:
-  #   build: ./media-domain/
-  #   container_name: glusterfs-node3
-  #   hostname: glusterfs-node3
-  #   volumes:
-  #     - glusterfs-data3:/data
-  #   networks:
-  #     glusterfs-net:
-  #       ipv4_address: 192.168.1.13
-  #   privileged: true
-  #   ports:
-  #     - "8083:80"
-  #   command: >
-  #     /bin/sh -c "
-  #     ./entrypoint.sh glusterfs-node1 && 
-  #     ./setup.sh &&
-  #     tail -f /dev/null"
-
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.17.5
     container_name: elasticsearch
@@ -100,10 +41,10 @@ services:
       - CONSUL_PORT=8500
       - CONSUL_HOST=192.168.56.2 
 
-  search:
+  search-service:
     build: ./search_service/
     container_name: search-service
-    hostname: searh-service
+    hostname: search-service
     depends_on:
       - consul
       - subscriber
@@ -121,6 +62,148 @@ services:
       - ELASTIC_USER=elastic
       - INSTANCE_HOST=192.168.56.2 
       - INSTANCE_PORT=9300
+
+  dummy-page-adder:
+    image: python:3.11-alpine
+    container_name: page-adder
+    hostname: page-adder
+    expose:
+      - 8000
+    ports:
+      - "8001:8000"
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.10
+    command: python3 -m http.server 8000
+
+  # page_adding_service:
+  #   build:
+  #     context: ./page_adding_service
+  #   ports:
+  #     - "8001:8002"
+  #   depends_on:
+  #     - page_retrieval_service_1 # Changed dependency to page_retrieval_service_1
+  #   networks:
+  #     shared-net:
+  #       ipv4_address: 192.168.56.10
+  dummy-auth-service:
+    image: python:3.11-alpine
+    container_name: auth-service
+    hostname: auth-service
+    expose:
+      - 8000
+    ports:
+      - "8002:8000"
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.11
+    command: python3 -m http.server 8000
+
+  # TODO: add kafka on 192.168.56.5 
+  db:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: mydb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myuser -d mydb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - backend
+
+  x-page-retrieval-service: &page_retrieval_service_defaults
+    build:
+      context: ./page_retrieval_service
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: mydb
+      DB_USER: myuser
+      DB_PASSWORD: mypassword
+
+  page_retrieval_service_1:
+    <<: *page_retrieval_service_defaults
+    ports:
+      - "8003:8001"
+    hostname: page-retriever-1
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.7
+      backend:
+
+  page_retrieval_service_2:
+    <<: *page_retrieval_service_defaults
+    ports:
+      - "8004:8001"
+    hostname: page-retriever-2
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.8
+      backend:
+
+  page_retrieval_service_3:
+    <<: *page_retrieval_service_defaults
+    ports:
+      - "8005:8001"
+    hostname: page-retriever-3
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.9
+      backend:
+
+  api-gateway:
+    image: nginx:latest
+    container_name: api-gateway
+    hostname: api-gateway
+    depends_on:
+      - page_retrieval_service_1
+      - page_retrieval_service_2
+      - page_retrieval_service_3
+      - dummy-page-adder
+      - dummy-auth-service
+      - search-service
+    ports:
+      - "8100:80"
+    volumes:
+      - ./nginx/configs/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/static:/usr/share/nginx/html
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.20
+
+
+volumes:
+  glusterfs-data1:
+  glusterfs-data2:
+  glusterfs-data3:
+  postgres_data:
+
+
+networks:
+  backend:
+
+  glusterfs-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.1.0/24
+
+  shared-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.56.0/24
+
 
   # dummy-page-retriever-1:
   #   image: python:3.11-alpine
@@ -160,132 +243,3 @@ services:
   #     shared-net:
   #       ipv4_address: 192.168.56.9
   #   command: python3 -m http.server 8000
-
-  # dummy-page-adder:
-  #   image: python:3.11-alpine
-  #   container_name: page-adder
-  #   hostname: page-adder
-  #   expose:
-  #     - 8000
-  #   ports:
-  #     - "8004:8000"
-  #   networks:
-  #     shared-net:
-  #       ipv4_address: 192.168.56.10
-  #   command: python3 -m http.server 8000
-
-  dummy-auth-service:
-    image: python:3.11-alpine
-    container_name: auth-service
-    hostname: auth-service
-    expose:
-      - 8000
-    ports:
-      - "8005:8000"
-    networks:
-      shared-net:
-        ipv4_address: 192.168.56.11
-    command: python3 -m http.server 8000
-
-  # TODO: add kafka on 192.168.56.5 
-
-  api-gateway:
-    image: nginx:latest
-    container_name: api-gateway
-    hostname: api-gateway
-    depends_on:
-      - page_retrieval_service_1
-      - page_retrieval_service_2
-      - page_retrieval_service_3
-      - page_adding_service
-      - dummy-auth-service
-    ports:
-      - "8100:80"
-    volumes:
-      - ./nginx/configs/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/static:/usr/share/nginx/html
-    networks:
-      shared-net:
-        ipv4_address: 192.168.56.12
-
-  db:
-    image: postgres:14
-    environment:
-      POSTGRES_USER: myuser
-      POSTGRES_PASSWORD: mypassword
-      POSTGRES_DB: mydb
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U myuser -d mydb"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    networks:
-      - backend
-
-  x-page-retrieval-service: &page_retrieval_service_defaults
-    build:
-      context: ./page_retrieval_service
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_NAME: mydb
-      DB_USER: myuser
-      DB_PASSWORD: mypassword
-    networks:
-      - backend
-
-  page_retrieval_service_1:
-    <<: *page_retrieval_service_defaults
-    ports:
-      - "8001:8001"
-
-  page_retrieval_service_2:
-    <<: *page_retrieval_service_defaults
-    ports:
-      - "8003:8001"
-
-  page_retrieval_service_3:
-    <<: *page_retrieval_service_defaults
-    ports:
-      - "8004:8001"
-
-  page_adding_service:
-    build:
-      context: ./page_adding_service
-    ports:
-      - "8002:8002"
-    depends_on:
-      - page_retrieval_service_1 # Changed dependency to page_retrieval_service_1
-    networks:
-      - backend
-
-
-volumes:
-  glusterfs-data1:
-  glusterfs-data2:
-  glusterfs-data3:
-  postgres_data:
-
-
-networks:
-  backend:
-
-  glusterfs-net:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 192.168.1.0/24
-
-  shared-net:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 192.168.56.0/24
-

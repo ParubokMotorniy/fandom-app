@@ -40,6 +40,7 @@ def poll_pages():
             break
 
 @search_service.get("/search/get_matches", response_class=HTMLResponse)
+@search_service.get("/search/get_matches/", response_class=HTMLResponse)
 async def search_pages(query_string: str):
     try:
         response = await search_service.state.elastic_client.search(
@@ -104,13 +105,11 @@ async def check():
 @search_service.on_event("startup")
 async def start_search():
     #elastic
-    elastic_service = ch.get_random_service("elasticsearch")
+    elastic_service = None
+    while elastic_service==None:
+        elastic_service = ch.get_random_service("elasticsearch")
     
     print(f"Obtained elastic config: {elastic_service}")
-    
-    if elastic_service == None:
-        print("Search service failed to connect to elastic!")
-        return
         
     search_service.state.elastic_client = AsyncElasticsearch(
         f"https://{elastic_service[0]}:{elastic_service[1]}",
@@ -120,7 +119,9 @@ async def start_search():
     )
     
     #kafka
-    general_kafka_config = ch.read_value_for_key("kafka-config")
+    general_kafka_config = None
+    while general_kafka_config == None:
+        general_kafka_config = ch.read_value_for_key("kafka-config")
     
     print(f"Obtained kafka config: {general_kafka_config}")
     
