@@ -6,37 +6,40 @@ from app.schemas.page import PageCreate, PageResponse
 from ..consul import consul_helpers as ch
 
 def get_kafka_producer():
-    general_kafka_config = None
-    while general_kafka_config is None:
-        general_kafka_config = ch.read_value_for_key("kafka-config")
+    """Get Kafka producer configuration from Consul."""
+    kafka_config = None
+    while kafka_config is None:
+        kafka_config = ch.read_value_for_key("kafka-config")
     
+    # Create producer configuration
     producer_config = {
-        **general_kafka_config["kafka_parameters"],
-        "client.id": "page-adding-service"
+        **kafka_config["kafka_parameters"]
     }
     
     return Producer(producer_config)
 
 def forward_page_to_retrieval_service(page_data: PageCreate) -> bool:
     try:
+        print("Getting Kafka producer")
         producer = get_kafka_producer()
         
         # Get the topic name from Consul config
-        general_kafka_config = ch.read_value_for_key("kafka-config")
-        topic_name = general_kafka_config["retrieve-topic-name"]
+        kafka_config = ch.read_value_for_key("kafka-config")
+        topic_name = kafka_config["retrieve-topic-name"]
+        print(f"Topic name: {topic_name}")
         
         # Convert page data to JSON
         page_json = json.dumps(page_data.dict())
         
-        # Produce message to Kafka
-        print(f"Producing message to Kafka: {page_json}")
+        # Publish message to Kafka
+        print(f"Publishing message to Kafka: {page_json}")
         producer.produce(
             topic=topic_name,
             value=page_json.encode('utf-8'),
-            callback=lambda err, msg: print(f"Message delivered to {msg.topic()} [{msg.partition()}]") if err is None else print(f"Failed to deliver message: {err}")
+            callback=lambda err, msg: print(f"Message delivery failed: {err}") if err else print(f"Message delivered to {msg.topic()} [{msg.partition()}]")
         )
         
-        # Flush to ensure the message is sent
+        # Wait for any outstanding messages to be delivered
         producer.flush()
         return True
         

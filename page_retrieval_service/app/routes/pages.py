@@ -19,16 +19,16 @@ async def fetch_page(page_id: str):
 @router.post("/internal/store-page")
 async def store_page(request: PageCreate):
     success = await save_page_to_db(request.dict())
+
     if not success:
         raise HTTPException(status_code=500, detail="Failed to save page")
+
     return {"status": "ok"}
 
 
 @router.get("/pages", response_model=List[PageResponse], tags=["Pages"])
 async def all_pages():
     pages = await fetch_all_pages()
-    if not pages:
-        raise HTTPException(status_code=404, detail="No pages found")
     return [PageResponse(id=p.id, title=p.title, content=p.content) for p in pages]
 
     

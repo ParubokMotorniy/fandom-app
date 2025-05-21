@@ -2,82 +2,104 @@
 
 # app/services/retrieval.py
 
-from app.db.connection import AsyncSessionLocal
+from app.db.connection import AsyncSessionLocal, async_engine
 from app.models.page import Page
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import select
 import uuid
 import json
-from confluent_kafka import Consumer, KafkaException
 import threading
 import os
 from ..consul import consul_helpers as ch
 import asyncio
 from typing import Optional
+from confluent_kafka import Consumer, KafkaException
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 # Global variable to store the Kafka consumer thread
 kafka_thread: Optional[threading.Thread] = None
 
 def get_kafka_consumer():
     """Get Kafka consumer configuration from Consul."""
-    general_kafka_config = None
-    while general_kafka_config is None:
-        general_kafka_config = ch.read_value_for_key("kafka-config")
+    kafka_config = None
+    while kafka_config is None:
+        kafka_config = ch.read_value_for_key("kafka-config")
     
+    # Create consumer configuration
     consumer_config = {
-        **general_kafka_config["kafka_parameters"],
+        **kafka_config["kafka_parameters"],
         "auto.offset.reset": "earliest",
-        "enable.auto.commit": True,
-        "group.id": "page-retrieval-service"
+        "enable.auto.commit": True
     }
     
     return Consumer(consumer_config)
 
-async def process_kafka_message(message):
+async def process_message(message: str, session_factory):
     """Process a message from Kafka and save it to the database."""
     try:
-        page_data = json.loads(message.value().decode('utf-8'))
-        return await save_page_to_db(page_data)
+        page_data = json.loads(message)
+        async with session_factory() as session:
+            return await save_page_to_db(page_data, session)
     except Exception as e:
-        print(f"Error processing Kafka message: {e}")
+        print(f"Error processing message: {e}")
         return False
 
-def poll_messages():
-    """Poll messages from Kafka topic."""
+def consume_messages():
+    """Consume messages from Kafka topic."""
     print("Starting Kafka consumer...")
     consumer = get_kafka_consumer()
     
     # Get topic name from Consul config
-    general_kafka_config = ch.read_value_for_key("kafka-config")
-    topic_name = general_kafka_config["retrieve-topic-name"]
+    kafka_config = ch.read_value_for_key("kafka-config")
+    topic_name = kafka_config["retrieve-topic-name"]
     
-    print(f"Subscribing to topic: {topic_name}")
+    # Subscribe to topic
     consumer.subscribe([topic_name])
     
-    while True:
-        try:
-            message = consumer.poll(timeout=1.0)
-            if message is None:
-                continue
-            if message.error():
-                raise KafkaException(message.error())
-            
-            # Process message asynchronously
-            print(f"Processing message: {message}")
-            asyncio.run(process_kafka_message(message))
-            
-            consumer.commit(message)
-        except Exception as e:
-            print(f"Error polling Kafka messages: {e}")
-            break
+    print(f"Consuming from topic: {topic_name}")
     
-    consumer.close()
+    # Create a new event loop for this thread
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    # Create a new engine and session factory for this thread
+    engine = create_async_engine(str(async_engine.url), echo=False)
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    
+    try:
+        while True:
+            msg = consumer.poll(1.0)
+            if msg is None:
+                continue
+            if msg.error():
+                print(f"Kafka error: {msg.error()}")
+                raise KafkaException(msg.error())
+            
+            try:
+                message = msg.value().decode('utf-8')
+                print(f"Received message: {message}")
+                
+                # Run the async function in the thread's event loop
+                success = loop.run_until_complete(process_message(message, session_factory))
+                if success:
+                    print("Message processed successfully")
+                    consumer.commit(msg)
+                else:
+                    print("Failed to process message")
+            except Exception as e:
+                print(f"Error processing message: {e}")
+    except Exception as e:
+        print(f"Error consuming messages: {e}")
+    finally:
+        consumer.close()
+        loop.run_until_complete(engine.dispose())
+        loop.close()
 
 def start_kafka_consumer():
     """Start the Kafka consumer in a background thread."""
     global kafka_thread
     if kafka_thread is None or not kafka_thread.is_alive():
-        kafka_thread = threading.Thread(target=poll_messages, daemon=True)
+        kafka_thread = threading.Thread(target=consume_messages, daemon=True)
         kafka_thread.start()
         print("Kafka consumer thread started")
 
@@ -95,24 +117,43 @@ async def get_page_by_id(page_id: str):
         )
         return result.scalar_one_or_none()
 
-async def save_page_to_db(page_data: dict) -> bool:
+async def save_page_to_db(page_data: dict, session=None) -> bool:
     """Save a new page to the database."""
-    async with AsyncSessionLocal() as session:
-        print(f"Saving page to db: {page_data}")
+    if session is None:
+        async with AsyncSessionLocal() as session:
+            return await _save_page_to_db_internal(page_data, session)
+    return await _save_page_to_db_internal(page_data, session)
+
+async def _save_page_to_db_internal(page_data: dict, session) -> bool:
+    """Internal implementation of save_page_to_db."""
+    print(f"Saving page to db: {page_data}")
+    try:
+        new_page = Page(
+            id=str(uuid.uuid4()),
+            title=page_data["title"],
+            content=page_data["html"]
+        )
+        print(f"Adding new page with id: {new_page.id}")
+        session.add(new_page)
         try:
-            new_page = Page(
-                id=str(uuid.uuid4()),
-                title=page_data["title"],
-                content=page_data["html"]
-            )
-            print(f"Adding new page with id: {new_page.id}")
-            session.add(new_page)
             await session.commit()
+            print(f"Successfully committed page with id: {new_page.id}")
             return True
         except SQLAlchemyError as e:
-            print(f"Error saving page: {e}")
+            print(f"Error during commit: {str(e)}")
+            print(f"Error type: {type(e)}")
             await session.rollback()
             return False
+    except SQLAlchemyError as e:
+        print(f"Error creating page: {str(e)}")
+        print(f"Error type: {type(e)}")
+        await session.rollback()
+        return False
+    except Exception as e:
+        print(f"Unexpected error saving page: {str(e)}")
+        print(f"Error type: {type(e)}")
+        await session.rollback()
+        return False
 
 async def fetch_all_pages():
     """Fetch all pages from the database."""
@@ -120,7 +161,10 @@ async def fetch_all_pages():
         print("Fetching all pages")
         try:
             result = await session.execute(select(Page))
-            return result.scalars().all()
+            pages = result.scalars().all()
+            print(f"Found {len(pages)} pages")
+            return pages
         except SQLAlchemyError as e:
             print(f"Error fetching pages: {e}")
+            await session.rollback()
             return []
