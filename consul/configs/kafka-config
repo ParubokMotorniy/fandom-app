@@ -3,7 +3,7 @@
     "retrieve-topic-name" : "retrieve-pages-topic",
     "kafka_parameters": 
     {
-        "bootstrap.servers": "192.168.56.5:9092",
+        "bootstrap.servers": "kafka:9092",
         "group.id": "kafka-servitor",
         "acks": "all"
     }
