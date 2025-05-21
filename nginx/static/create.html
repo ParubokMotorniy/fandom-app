@@ -30,7 +30,10 @@
   <hr>
 
   <form id="pageForm">
-    <label>Page Description:</label>
+    <label>Page Title:</label>
+    <textarea id="title" rows="1" required></textarea>
+
+    <label>Page Content:</label>
     <textarea id="description" rows="4" required></textarea>
 
     <label>Optional Image:</label>
@@ -42,7 +45,6 @@
   <script>
     let authToken = null;
 
-    // Step 1: Handle login form
     document.getElementById("authForm").addEventListener("submit", async function (e) {
       e.preventDefault();
 
@@ -55,10 +57,11 @@
         body: JSON.stringify({ username, password })
       });
 
+      const authStatus = document.getElementById("auth-status");
       if (!loginRes.ok) {
-        document.getElementById("auth-status").textContent = "Login failed.";
-        document.getElementById("auth-status").style.color = "red";
         authToken = null;
+        authStatus.textContent = "Login failed.";
+        authStatus.style.color = "red";
         document.getElementById("submitButton").disabled = true;
         return;
       }
@@ -66,17 +69,16 @@
       const data = await loginRes.json();
       if (data.token) {
         authToken = data.token;
-        document.getElementById("auth-status").textContent = "Logged in.";
-        document.getElementById("auth-status").style.color = "green";
+        authStatus.textContent = "Logged in.";
+        authStatus.style.color = "green";
         document.getElementById("submitButton").disabled = false;
       } else {
-        document.getElementById("auth-status").textContent = "Login failed: token missing.";
-        document.getElementById("auth-status").style.color = "red";
+        authStatus.textContent = "Login failed: token missing.";
+        authStatus.style.color = "red";
         document.getElementById("submitButton").disabled = true;
       }
     });
 
-    // Step 2: Handle page creation and submission
     document.getElementById("pageForm").addEventListener("submit", async function (e) {
       e.preventDefault();
 
@@ -85,6 +87,7 @@
         return;
       }
 
+      const title = document.getElementById("title").value;
       const description = document.getElementById("description").value;
       const imageFile = document.getElementById("image").files[0];
 
@@ -95,7 +98,7 @@
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${authToken}`
           },
-          body: JSON.stringify({ html: htmlContent })
+          body: JSON.stringify({ title: title, html: htmlContent })
         })
         .then(res => {
           if (res.ok) {
@@ -112,9 +115,10 @@
         reader.onload = function () {
           const imageTag = `<img src="${reader.result}" style="max-width:100%;" />`;
           const htmlContent = `
-            <h1>Lore</h1>
+            <h1>${title}</h1>
+            <h2>Lore</h2>
             <p>${description}</p>
-            <h1>Image</h1>
+            <h2>Image</h2>
             ${imageTag}
           `;
           sendPage(htmlContent);
@@ -122,9 +126,10 @@
         reader.readAsDataURL(imageFile);
       } else {
         const htmlContent = `
-          <h1>Lore</h1>
+          <h1>${title}</h1>
+          <h2>Lore</h2>
           <p>${description}</p>
-          <h1>Image</h1>
+          <h2>Image</h2>
           <p>No image provided.</p>
         `;
         sendPage(htmlContent);
