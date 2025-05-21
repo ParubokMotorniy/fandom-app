@@ -31,4 +31,6 @@ async def all_pages():
     pages = await fetch_all_pages()
     return [PageResponse(id=p.id, title=p.title, content=p.content) for p in pages]
 
-    
+@router.get("/health")
+async def check():
+    return "Page retrieval is healthy"

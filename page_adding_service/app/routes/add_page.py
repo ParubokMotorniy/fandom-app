@@ -19,3 +19,7 @@ async def add_page(request: PageCreate):
     
     print("Page added successfully")
     return {"message": "Page added successfully"}
+
+@router.get("/health")
+async def check():
+    return "Page adding is healthy"

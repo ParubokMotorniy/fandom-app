@@ -5,6 +5,8 @@ from app.routes.pages import router as pages_router
 from app.db.connection import async_engine
 from app.models.page import Base
 import uvicorn
+import os
+from app.consul import consul_helpers as ch
 from app.services.retrieval import start_kafka_consumer, stop_kafka_consumer
 
 app = FastAPI(
@@ -23,6 +25,16 @@ async def startup_event():
     print("Page Retrieval Service starting up...")
     # Start Kafka consumer
     start_kafka_consumer()
+
+    port = int(os.environ["INSTANCE_PORT"])
+    print(f"port: {port}")
+    #sevice-specific stuff
+    ch.register_consul_service(
+        "page_retrieval", 
+        "page_retrieval_" + str(port - 8003),
+        os.environ["INSTANCE_HOST"], 
+        port
+    )
 
 @app.on_event("shutdown")
 async def shutdown_event():
