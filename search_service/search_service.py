@@ -12,14 +12,15 @@ from ..consul import consul_helpers as ch
 
 from .schemas.page import PageResponse
 
+import asyncio
 import os
 import threading
 import numpy as np
 
 search_service = FastAPI()
 
-async def add_page_to_elastic(content: str, uri: str, id: int ):
-    new_doc = helper.construct_elastic_entry(content, uri)
+async def add_page_to_elastic(content: str, uri: str, id: str, page_title: str = None):
+    new_doc = helper.construct_elastic_entry(content, uri, page_title=page_title)
 
     try:
         await search_service.state.elastic_client.create(
@@ -32,27 +33,29 @@ async def add_page_to_elastic(content: str, uri: str, id: int ):
 def poll_pages():
     while True:
         try:
-            incoming_message = search_service.state.kafka_consumer.poll()
+            incoming_message = search_service.state.kafka_consumer.poll(1.0)
 
             if incoming_message is None:
                 continue
             if incoming_message.error():
                 raise KafkaException(incoming_message.error())
-            else:
-                # TODO: properly receive the page from the queue
-                # TODO: obtain the URI from the queue
-                # TODO: obtain page id from the queue
-                
+            else:                
                 json_page = incoming_message.value().decode('utf-8') 
                 actual_page = PageResponse.parse_raw(json_page)
                 
+                print(f"Search received page from kafka: {json_page}")
+                
                 search_service.state.kafka_consumer.commit(incoming_message)
 
-                add_page_to_elastic(actual_page.content, f"{search_service.state.page_endpoint}{actual_page.id}", int(actual_page.id))
+                future = asyncio.run_coroutine_threadsafe(add_page_to_elastic(actual_page.content, f"{search_service.state.page_endpoint}{actual_page.id}", actual_page.id, actual_page.title), kafka_loop)
+                success = future.result()
+                
+                if success:
+                    print(f"Page {actual_page.id} has been successfully added to elastic!")
 
         except Exception as e:
             # probably consumer was closed
-            print(f"Polling {os.getpid()} stopped!")
+            print(f"Polling at {os.getpid()} stopped! Details: {e}")
             break
 
 @search_service.get("/search/get_matches", response_class=HTMLResponse)
@@ -151,6 +154,8 @@ async def start_search():
     #sevice-specific stuff
     ch.register_consul_service("search", "0", os.environ["INSTANCE_HOST"], int(os.environ["INSTANCE_PORT"]), 30, 60, "/health" )
 
+    global kafka_loop
+    kafka_loop = asyncio.get_event_loop()
     search_service.state.polling_thread = threading.Thread(
         target=poll_pages, name="Poller", daemon=True
     )

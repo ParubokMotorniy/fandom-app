@@ -13,4 +13,4 @@ EXPOSE 8001
 ENV CONSUL_HOST=192.168.56.2
 ENV CONSUL_PORT=8500
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--log-level", "debug"]

@@ -1,71 +1,71 @@
 version: "3.9"
 
 services:
-  consul:
-    image: hashicorp/consul:latest
-    container_name: consul
-    hostname: consul
-    ports:
-      - "8500:8500"       
-    networks:
-      shared-net:
-        ipv4_address: 192.168.56.2
-    command: "agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0"
+  # consul:
+  #   image: hashicorp/consul:latest
+  #   container_name: consul
+  #   hostname: consul
+  #   ports:
+  #     - "8500:8500"       
+  #   networks:
+  #     shared-net:
+  #       ipv4_address: 192.168.56.2
+  #   command: "agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0"
 
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.0
-    container_name: zookeeper
-    hostname: zookeeper
-    networks:
-      shared-net:
-        ipv4_address: 192.168.56.12
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
+  # zookeeper:
+  #   image: confluentinc/cp-zookeeper:7.5.0
+  #   container_name: zookeeper
+  #   hostname: zookeeper
+  #   networks:
+  #     shared-net:
+  #       ipv4_address: 192.168.56.12
+  #   environment:
+  #     ZOOKEEPER_CLIENT_PORT: 2181
+  #     ZOOKEEPER_TICK_TIME: 2000
 
-  kafka:
-    image: confluentinc/cp-kafka:7.5.0
-    container_name: kafka
-    hostname: kafka
-    ports:
-      - "9092:9092"
-    networks:
-      shared-net:
-        ipv4_address: 192.168.56.23
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://192.168.56.5:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      KAFKA_MESSAGE_MAX_BYTES: 1048576000
-      KAFKA_REPLICA_FETCH_MAX_BYTES: 1048576000
-      KAFKA_MAX_REQUEST_SIZE: 1048576000
-    depends_on:
-      - zookeeper
+  # kafka:
+  #   image: confluentinc/cp-kafka:7.5.0
+  #   container_name: kafka
+  #   hostname: kafka
+  #   ports:
+  #     - "9092:9092"
+  #   networks:
+  #     shared-net:
+  #       ipv4_address: 192.168.56.23
+  #   environment:
+  #     KAFKA_BROKER_ID: 1
+  #     KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+  #     KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://192.168.56.5:9092
+  #     KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+  #     KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+  #     KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+  #     KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+  #     KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+  #     KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+  #     KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+  #     KAFKA_MESSAGE_MAX_BYTES: 1048576000
+  #     KAFKA_REPLICA_FETCH_MAX_BYTES: 1048576000
+  #     KAFKA_MAX_REQUEST_SIZE: 1048576000
+  #   depends_on:
+  #     - zookeeper
 
-  kafka-init:
-    image: confluentinc/cp-kafka:7.5.0
-    container_name: kafka-init
-    networks:
-      shared-net:
-        ipv4_address: 192.168.56.13
-    depends_on:
-      kafka:
-        condition: service_healthy
-    command: >
-      bash -c "
-        echo 'Waiting for Kafka to be ready...' &&
-        sleep 10 &&
-        kafka-topics --create --if-not-exists --topic retrieve-pages-topic --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
-        kafka-topics --create --if-not-exists --topic search-pages-topic --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
-        echo 'Topics created successfully'
-      "
+  # kafka-init:
+  #   image: confluentinc/cp-kafka:7.5.0
+  #   container_name: kafka-init
+  #   networks:
+  #     shared-net:
+  #       ipv4_address: 192.168.56.13
+  #   depends_on:
+  #     kafka:
+  #       condition: service_healthy
+  #   command: >
+  #     bash -c "
+  #       echo 'Waiting for Kafka to be ready...' &&
+  #       sleep 10 &&
+  #       kafka-topics --create --if-not-exists --topic retrieve-pages-topic --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
+  #       kafka-topics --create --if-not-exists --topic search-pages-topic --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
+  #       echo 'Topics created successfully'
+  #     "
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.17.5
@@ -102,11 +102,16 @@ services:
     container_name: search-service
     hostname: search-service
     depends_on:
-      - consul
-      - subscriber
-      - elasticsearch
-      - kafka
-      - zookeeper
+      consul:
+        condition: service_started
+      subscriber:
+        condition: service_completed_successfully
+      elasticsearch:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
     networks:
       shared-net:
         ipv4_address: 192.168.56.21
@@ -374,56 +379,3 @@ networks:
     ipam:
       config:
         - subnet: 192.168.56.0/24
-
-
-  # dummy-page-retriever-1:
-  #   image: python:3.11-alpine
-  #   container_name: page-retriever-1
-  #   hostname: page-retriever-1
-  #   expose:
-  #     - 8000
-  #   ports:
-  #     - "8001:8000"
-  #   networks:
-  #     shared-net:
-  #       ipv4_address: 192.168.56.7
-  #   command: python3 -m http.server 8000
-
-  # dummy-page-retriever-2:
-  #   image: python:3.11-alpine
-  #   container_name: page-retriever-2
-  #   hostname: page-retriever-2
-  #   expose:
-  #     - 8000
-  #   ports:
-  #     - "8002:8000"
-  #   networks:
-  #     shared-net:
-  #       ipv4_address: 192.168.56.8
-  #   command: python3 -m http.server 8000
-
-  # dummy-page-retriever-3:
-  #   image: python:3.11-alpine
-  #   container_name: page-retriever-3
-  #   hostname: page-retriever-3
-  #   expose:
-  #     - 8000
-  #   ports:
-  #     - "8003:8000"
-  #   networks:
-  #     shared-net:
-  #       ipv4_address: 192.168.56.9
-  #   command: python3 -m http.server 8000
-
-  # dummy-auth-service:
-  # image: python:3.11-alpine
-  # container_name: auth-service
-  # hostname: auth-service
-  # expose:
-  #   - 8000
-  # ports:
-  #   - "8006:8000"
-  # networks:
-  #   shared-net:
-  #     ipv4_address: 192.168.56.11
-  # command: python3 -m http.server 8000

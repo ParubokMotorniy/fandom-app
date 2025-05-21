@@ -126,7 +126,8 @@ async def _save_page_to_db_internal(page_data: dict, session) -> bool:
     try:
         new_page = Page(
             title=page_data["title"],
-            content=page_data["html"]
+            content=page_data["html"],
+            id=page_data["id"]
         )
         print(f"Adding new page with id: {new_page.id}")
         session.add(new_page)

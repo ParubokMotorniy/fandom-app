@@ -52,11 +52,11 @@ def construct_empty_search_page():
     
     return  HTMLResponse(content=html_template)
 
-def construct_elastic_entry(input_raw_html: str, page_uri: str):
+def construct_elastic_entry(input_raw_html: str, page_uri: str, page_title: str = None):
     
     soup = BeautifulSoup(input_raw_html, "html.parser")
     
-    title = soup.title.string.strip() if soup.title and soup.title.string else f"Untitled:{page_uri}"
+    title = page_title if page_title is not None else (soup.title.string.strip() if soup.title and soup.title.string else f"Untitled:{page_uri}")
     
     text = soup.get_text()
     text = text.translate(str.maketrans('', '', string.punctuation))
