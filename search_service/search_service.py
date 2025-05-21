@@ -10,11 +10,24 @@ from confluent_kafka import Consumer, KafkaException
 
 from ..consul import consul_helpers as ch
 
+from .schemas.page import PageResponse
+
 import os
 import threading
 import numpy as np
 
 search_service = FastAPI()
+
+async def add_page_to_elastic(content: str, uri: str, id: int ):
+    new_doc = helper.construct_elastic_entry(content, uri)
+
+    try:
+        await search_service.state.elastic_client.create(
+            index=search_service.state.page_index_name, document=new_doc, id=id
+        )
+    except Exception as e:
+        print(f"Failed to index a page. Details: {e}")
+        raise HTTPException(status_code=503, detail="Some elasticsearch error!")  
 
 def poll_pages():
     while True:
@@ -29,11 +42,14 @@ def poll_pages():
                 # TODO: properly receive the page from the queue
                 # TODO: obtain the URI from the queue
                 # TODO: obtain page id from the queue
-
-                # messenger_service.state.local_message_map[incoming_message.key().decode('utf-8')] = incoming_message.value().decode('utf-8')
-                # print(f"Messenger {os.getpid()} received message: {incoming_message.key().decode('utf-8')}:{incoming_message.value().decode('utf-8')}")
-
+                
+                json_page = incoming_message.value().decode('utf-8') 
+                actual_page = PageResponse.parse_raw(json_page)
+                
                 search_service.state.kafka_consumer.commit(incoming_message)
+
+                add_page_to_elastic(actual_page.content, f"{search_service.state.page_endpoint}{actual_page.id}", int(actual_page.id))
+
         except Exception as e:
             # probably consumer was closed
             print(f"Polling {os.getpid()} stopped!")
@@ -69,23 +85,14 @@ async def search_pages(query_string: str):
 
     uris = [url for _, url in results]
     thumbs = [title for title, _ in results]
-    return helper.construct_search_results_page(uris, thumbs)
+    return helper.construct_search_results_page(uris, thumbs)  
 
 #to be used in debugging purposes only
 @search_service.post("/search/post_page")
 async def add_page_debug(new_page: UploadFile):
     if new_page.content_type == "text/html":
         contents = await new_page.read()
-
-        new_doc = helper.construct_elastic_entry(contents, "https://aa.bb.cc/")
-
-        try:
-            await search_service.state.elastic_client.create(
-                index=search_service.state.page_index_name, document=new_doc, id=np.random.randint(0,1000000)
-            )
-        except Exception as e:
-            print(f"Failed to index a page. Details: {e}")
-            raise HTTPException(status_code=503, detail="Some elasticsearch error!")
+        add_page_debug(contents, "https://aa.bb.cc/", np.random.randint(0,1000000))
     else:
         raise HTTPException(status_code=404, detail="Only html/text files are accepted!")
 
@@ -129,10 +136,17 @@ async def start_search():
     **general_kafka_config["kafka_parameters"],    
     "auto.offset.reset": "earliest",
     "enable.auto.commit": True
-    }
+    }    
         
     search_service.state.kafka_consumer = Consumer(custom_kafka_config)
     search_service.state.kafka_consumer.subscribe([general_kafka_config["search-topic-name"]])
+    
+    #page serving
+    serving_config = None
+    while serving_config == None:
+        serving_config = ch.read_value_for_key("page-serving-config")
+    search_service.state.page_endpoint = serving_config["page-serving-endpoint"]
+    print(f"Obtained page serving config: {serving_config}")
     
     #sevice-specific stuff
     ch.register_consul_service("search", "0", os.environ["INSTANCE_HOST"], int(os.environ["INSTANCE_PORT"]), 30, 60, "/health" )
