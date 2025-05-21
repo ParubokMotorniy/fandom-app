@@ -10,13 +10,12 @@ from sqlalchemy.exc import SQLAlchemyError
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-DB_USER = os.getenv("DB_USER", "myuser")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "mypassword")
-DB_HOST = os.getenv("DB_HOST", "db")  # Changed default to 'db' to match service name
+DB_HOST = os.getenv("DB_HOST", "page_retrieval_service_db")
 DB_PORT = os.getenv("DB_PORT", "5432")
 DB_NAME = os.getenv("DB_NAME", "mydb")
+DB_USER = os.getenv("DB_USER", "myuser")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "mypassword")
 
-print(DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME)
 
 DATABASE_URL = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 logger.info(f"Connecting to database at {DB_HOST}:{DB_PORT}/{DB_NAME}")
@@ -36,6 +35,7 @@ try:
         }
     )
     logger.info("Database engine created successfully")
+    logger.info(f"{DB_USER}, {DB_PASSWORD}, {DB_HOST}, {DB_PORT}, {DB_NAME}")
 except Exception as e:
     logger.error(f"Failed to create database engine: {str(e)}")
     raise

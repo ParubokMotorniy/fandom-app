@@ -20,14 +20,14 @@ async def startup_event():
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    print("✅ Page Retrieval Service starting up...")
+    print("Page Retrieval Service starting up...")
     # Start Kafka consumer
     start_kafka_consumer()
 
 @app.on_event("shutdown")
 async def shutdown_event():
     await async_engine.dispose()
-    print("🛑 Page Retrieval Service shutting down...")
+    print("Page Retrieval Service shutting down...")
     # Stop Kafka consumer
     stop_kafka_consumer()
 

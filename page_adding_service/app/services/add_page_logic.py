@@ -24,7 +24,10 @@ def forward_page_to_retrieval_service(page_data: PageCreate) -> bool:
         producer = get_kafka_producer()
         
         # Get the topic name from Consul config
-        kafka_config = ch.read_value_for_key("kafka-config")
+        kafka_config = None
+        while kafka_config is None:
+            kafka_config = ch.read_value_for_key("kafka-config")
+    
         topic_name = kafka_config["retrieve-topic-name"]
         print(f"Topic name: {topic_name}")
         

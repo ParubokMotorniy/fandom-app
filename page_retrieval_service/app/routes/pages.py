@@ -16,7 +16,7 @@ async def fetch_page(page_id: str):
         raise HTTPException(status_code=404, detail="Page not found")
     return page
 
-@router.post("/internal/store-page")
+@router.post("/internal/store-page", deprecated = True)
 async def store_page(request: PageCreate):
     success = await save_page_to_db(request.dict())
 

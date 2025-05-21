@@ -4,20 +4,19 @@ services:
   page_retrieval_service_db:
     image: postgres:14
     environment:
-      POSTGRES_USER: myuser
+      POSTGRES_USER:     myuser
       POSTGRES_PASSWORD: mypassword
-      POSTGRES_DB: mydb
-      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_DB:       mydb
+      PGDATA:            /var/lib/postgresql/data/pgdata
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U myuser -d mydb"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      test:       ["CMD-SHELL", "pg_isready -U myuser -d mydb"]
+      interval:   5s
+      timeout:    5s
+      retries:    5
       start_period: 10s
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./app/db/init.sql:/docker-entrypoint-initdb.d/init.sql
-      - ./app/db/setup-auth.sh:/docker-entrypoint-initdb.d/setup-auth.sh
     ports:
       - "5432:5432"
     networks:
@@ -29,17 +28,14 @@ services:
       context: .
     expose:
       - "8001"
-    depends_on:
-      page_retrieval_service_db:
-        condition: service_healthy
     environment:
-      DB_HOST: page_retrieval_service_db
-      DB_PORT: 5432
-      DB_NAME: mydb
-      DB_USER: myuser
-      DB_PASSWORD: mypassword
-      CONSUL_HOST: 192.168.56.2
-      CONSUL_PORT: 8500
+      DB_HOST:       page_retrieval_service_db
+      DB_PORT:       5432
+      DB_NAME:       mydb
+      DB_USER:       myuser
+      DB_PASSWORD:   mypassword
+      CONSUL_HOST:   192.168.56.2
+      CONSUL_PORT:   8500
     networks:
       - backend
       - shared-net
@@ -51,4 +47,4 @@ networks:
   backend:
     external: true
   shared-net:
-    external: true 
+    external: true

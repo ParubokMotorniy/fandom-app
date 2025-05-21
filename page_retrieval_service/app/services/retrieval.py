@@ -9,6 +9,7 @@ from sqlalchemy import select
 import uuid
 import json
 import threading
+import logging
 import os
 from ..consul import consul_helpers as ch
 import asyncio
@@ -58,14 +59,6 @@ def consume_messages():
     
     print(f"Consuming from topic: {topic_name}")
     
-    # Create a new event loop for this thread
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    
-    # Create a new engine and session factory for this thread
-    engine = create_async_engine(str(async_engine.url), echo=False)
-    session_factory = async_sessionmaker(engine, expire_on_commit=False)
-    
     try:
         while True:
             msg = consumer.poll(1.0)
@@ -74,13 +67,18 @@ def consume_messages():
             if msg.error():
                 print(f"Kafka error: {msg.error()}")
                 raise KafkaException(msg.error())
-            
+
             try:
-                message = msg.value().decode('utf-8')
+                message = msg.value().decode("utf-8")
                 print(f"Received message: {message}")
-                
-                # Run the async function in the thread's event loop
-                success = loop.run_until_complete(process_message(message, session_factory))
+
+                # Schedule the coroutine to run on the main loop
+                future = asyncio.run_coroutine_threadsafe(
+                    process_message(message, AsyncSessionLocal),
+                    kafka_loop
+                )
+                success = future.result()
+
                 if success:
                     print("Message processed successfully")
                     consumer.commit(msg)
@@ -92,12 +90,10 @@ def consume_messages():
         print(f"Error consuming messages: {e}")
     finally:
         consumer.close()
-        loop.run_until_complete(engine.dispose())
-        loop.close()
 
 def start_kafka_consumer():
-    """Start the Kafka consumer in a background thread."""
-    global kafka_thread
+    global kafka_thread, kafka_loop
+    kafka_loop = asyncio.get_event_loop()
     if kafka_thread is None or not kafka_thread.is_alive():
         kafka_thread = threading.Thread(target=consume_messages, daemon=True)
         kafka_thread.start()
@@ -129,7 +125,6 @@ async def _save_page_to_db_internal(page_data: dict, session) -> bool:
     print(f"Saving page to db: {page_data}")
     try:
         new_page = Page(
-            id=str(uuid.uuid4()),
             title=page_data["title"],
             content=page_data["html"]
         )
