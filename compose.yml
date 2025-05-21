@@ -12,6 +12,57 @@ services:
         ipv4_address: 192.168.56.2
     command: "agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0"
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.5
+    container_name: elasticsearch
+    hostname: elasticsearch
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.4
+    ports:
+      - "9200:9200" 
+    environment:
+      - CONSUL_PORT=8500
+      - CONSUL_HOST=192.168.56.2 
+      - ELASTIC_PASSWORD=lyfAKzoo0NYA17iIBmv4
+
+  # this service merely pushes all configs/services to the consul during startup
+  subscriber:
+    build: ./consul/
+    container_name: dummy-subscriber
+    depends_on:
+      - consul
+      - elasticsearch
+      - kafka
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.6
+    environment:
+      - CONSUL_PORT=8500
+      - CONSUL_HOST=192.168.56.2 
+
+  search-service:
+    build: ./search_service/
+    container_name: search-service
+    hostname: search-service
+    depends_on:
+      - consul
+      - subscriber
+      - elasticsearch
+      #- kafka
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.21
+    ports:
+      - "9300:9300"
+    environment:
+      - CONSUL_PORT=8500
+      - CONSUL_HOST=192.168.56.2 
+      - ELASTIC_PASSWORD=lyfAKzoo0NYA17iIBmv4
+      - ELASTIC_USER=elastic
+      - INSTANCE_HOST=192.168.56.2 
+      - INSTANCE_PORT=9300
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: zookeeper
@@ -178,6 +229,25 @@ services:
       DB_PASSWORD: mypassword
       CONSUL_HOST: 192.168.56.2
       CONSUL_PORT: 8500
+
+  api-gateway:
+    image: nginx:latest
+    container_name: api-gateway
+    hostname: api-gateway
+    depends_on:
+      - page_retrieval_service_1
+      - page_retrieval_service_2
+      - page_retrieval_service_3
+      - search-service
+      - page_adding_service
+    ports:
+      - "8100:80"
+    volumes:
+      - ./nginx/configs/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/static:/usr/share/nginx/html
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.20
 
 volumes:
   glusterfs-data1:
