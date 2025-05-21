@@ -62,7 +62,7 @@
         authToken = null;
         authStatus.textContent = "Login failed.";
         authStatus.style.color = "red";
-        document.getElementById("submitButton").disabled = true;
+        document.getElementById("submitButton").disabled = false;
         return;
       }
 
@@ -75,17 +75,17 @@
       } else {
         authStatus.textContent = "Login failed: token missing.";
         authStatus.style.color = "red";
-        document.getElementById("submitButton").disabled = true;
+        document.getElementById("submitButton").disabled = false;
       }
     });
 
     document.getElementById("pageForm").addEventListener("submit", async function (e) {
       e.preventDefault();
 
-      if (!authToken) {
-        alert("You must login first.");
-        return;
-      }
+      // if (!authToken) {
+      //   alert("You must login first.");
+      //   return;
+      // }
 
       const title = document.getElementById("title").value;
       const description = document.getElementById("description").value;
