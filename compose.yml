@@ -249,6 +249,33 @@ services:
       shared-net:
         ipv4_address: 192.168.56.20
 
+  auth-service:
+    build: ./auth_service 
+    container_name: auth-service
+    hostname: auth-service
+    ports:
+      - "9100:9100"  
+    networks:
+      - shared-net  
+    environment:
+      - CONSUL_PORT=8500
+      - CONSUL_HOST=192.168.56.2
+    depends_on:
+      - consul  
+      - postgres-auth
+    
+  postgres-auth:
+    image: postgres:15
+    container_name: postgres-auth
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5433:5432"
+    networks:
+      - shared-net
+      
 volumes:
   glusterfs-data1:
   glusterfs-data2:

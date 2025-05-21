@@ -1,0 +1,48 @@
+version: "3.9"
+services:
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: auth-service
+    restart: always
+    environment:
+      SECRET_KEY: "your_very_secret_key"
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_HOST: postgres-auth
+      POSTGRES_PORT: 5432  # Inside docker network, we connect to default PostgreSQL port
+      INSTANCE_ID: "auth-0"
+      INSTANCE_HOST: "auth-service"
+      INSTANCE_PORT: 9100
+    ports:
+      - "9100:9100"
+    depends_on:
+      - postgres-auth
+    networks:
+      - backend
+    # Fix the host parameter and pass environment variables directly
+    command: ["/bin/bash", "-c", "/wait-for-postgres.sh postgres-auth uvicorn main:auth_service --host 0.0.0.0 --port 9100"]
+    
+
+  postgres-auth:
+    image: postgres:15
+    container_name: postgres-auth
+    restart: always
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5433:5432"  # Map host port 5433 to container's internal 5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+
+networks:
+  backend:
+
+volumes:
+  postgres_data:
