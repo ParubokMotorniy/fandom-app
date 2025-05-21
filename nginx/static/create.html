@@ -2,19 +2,20 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Create Your Page</title>
+  <title>Create and Browse Pages</title>
   <style>
     body { font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; }
-    h1 { color: #333; }
+    h1, h2 { color: #333; }
     label { display: block; margin-top: 15px; }
     input, textarea { width: 100%; padding: 10px; margin-top: 5px; }
     button { margin-top: 15px; padding: 10px 20px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
     button:disabled { background-color: #aaa; cursor: not-allowed; }
     #auth-status { margin-top: 10px; font-weight: bold; color: green; }
+    #browse-result { margin-top: 30px; border: 1px solid #ccc; padding: 15px; background-color: #f9f9f9; }
   </style>
 </head>
 <body>
-  <h1>Add your web page!</h1>
+  <h1>📖</h1>
 
   <form id="authForm">
     <label>Username:</label>
@@ -42,6 +43,17 @@
     <button type="submit" id="submitButton" disabled>Submit Page</button>
   </form>
 
+  <hr>
+
+  <form id="browseForm">
+    <label>Enter Page ID to View:</label>
+    <input type="text" id="pageId" required />
+
+    <button type="submit" id="browseButton" disabled>Browse Page</button>
+  </form>
+
+  <div id="browse-result"></div>
+
   <script>
     let authToken = null;
 
@@ -51,7 +63,7 @@
       const username = document.getElementById("username").value;
       const password = document.getElementById("password").value;
 
-      const loginRes = await fetch('/login', {
+      const loginRes = await fetch('http://localhost:8100/login', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ username, password })
@@ -62,37 +74,42 @@
         authToken = null;
         authStatus.textContent = "Login failed.";
         authStatus.style.color = "red";
-        document.getElementById("submitButton").disabled = false;
+
+        document.getElementById("submitButton").disabled = true;
+        document.getElementById("browseButton").disabled = true;
         return;
       }
 
       const data = await loginRes.json();
-      if (data.token) {
-        authToken = data.token;
+      if (data.access_token) {
+        authToken = data.access_token;
         authStatus.textContent = "Logged in.";
         authStatus.style.color = "green";
         document.getElementById("submitButton").disabled = false;
+        document.getElementById("browseButton").disabled = false;
       } else {
         authStatus.textContent = "Login failed: token missing.";
         authStatus.style.color = "red";
-        document.getElementById("submitButton").disabled = false;
+
+        document.getElementById("submitButton").disabled = true;
+        document.getElementById("browseButton").disabled = true;
       }
     });
 
     document.getElementById("pageForm").addEventListener("submit", async function (e) {
       e.preventDefault();
 
-      // if (!authToken) {
-      //   alert("You must login first.");
-      //   return;
-      // }
+      if (!authToken) {
+        alert("You must login first.");
+        return;
+      }
 
       const title = document.getElementById("title").value;
       const description = document.getElementById("description").value;
       const imageFile = document.getElementById("image").files[0];
 
       function sendPage(htmlContent) {
-        fetch('/upload', {
+        fetch('http://localhost:8100/upload', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -133,6 +150,41 @@
           <p>No image provided.</p>
         `;
         sendPage(htmlContent);
+      }
+    });
+
+    document.getElementById("browseForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      if (!authToken) {
+        alert("You must login first.");
+        return;
+      }
+
+      const pageId = document.getElementById("pageId").value;
+      const resultDiv = document.getElementById("browse-result");
+
+      try {
+        const response = await fetch(`http://localhost:8100/pages/page/${pageId}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+
+        if (!response.ok) {
+          resultDiv.innerHTML = `<p style="color:red;">Page not found or error occurred.</p>`;
+          return;
+        }
+
+        const pageData = await response.json();
+
+        resultDiv.innerHTML = `
+          <h2>Requested Page</h2>
+          <div>${pageData.html}</div>
+        `;
+      } catch (error) {
+        resultDiv.innerHTML = `<p style="color:red;">Failed to fetch page: ${error.message}</p>`;
       }
     });
   </script>
