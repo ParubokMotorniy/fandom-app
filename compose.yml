@@ -135,19 +135,6 @@ services:
       - CONSUL_HOST=192.168.56.2
       - CONSUL_PORT=8500
 
-  dummy-auth-service:
-    image: python:3.11-alpine
-    container_name: auth-service
-    hostname: auth-service
-    expose:
-      - 8000
-    ports:
-      - "8006:8000"
-    networks:
-      shared-net:
-        ipv4_address: 192.168.56.11
-    command: python3 -m http.server 8000
-
   db:
     image: postgres:14
     environment:
@@ -225,7 +212,6 @@ services:
       - page_retrieval_service_2
       - page_retrieval_service_3
       - page_adding_service
-      - dummy-auth-service
       - search-service
     ports:
       - "8100:80"
@@ -323,3 +309,16 @@ networks:
   #     shared-net:
   #       ipv4_address: 192.168.56.9
   #   command: python3 -m http.server 8000
+
+  # dummy-auth-service:
+  # image: python:3.11-alpine
+  # container_name: auth-service
+  # hostname: auth-service
+  # expose:
+  #   - 8000
+  # ports:
+  #   - "8006:8000"
+  # networks:
+  #   shared-net:
+  #     ipv4_address: 192.168.56.11
+  # command: python3 -m http.server 8000
