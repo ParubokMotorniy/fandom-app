@@ -117,7 +117,7 @@ services:
       - CONSUL_HOST=192.168.56.2 
       - ELASTIC_PASSWORD=lyfAKzoo0NYA17iIBmv4
       - ELASTIC_USER=elastic
-      - INSTANCE_HOST=192.168.56.2 
+      - INSTANCE_HOST=192.168.56.21 
       - INSTANCE_PORT=9300
 
   consul:
@@ -217,6 +217,8 @@ services:
     environment:
       - CONSUL_HOST=192.168.56.2
       - CONSUL_PORT=8500
+      - INSTANCE_PORT=8002
+      - INSTANCE_HOST=192.168.56.10
 
   page_retrieval_service_1:
     extends:
