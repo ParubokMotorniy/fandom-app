@@ -2,57 +2,38 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Create and Browse Pages</title>
+  <title>Create Page</title>
   <style>
     body { font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; }
-    h1, h2 { color: #333; }
     label { display: block; margin-top: 15px; }
     input, textarea { width: 100%; padding: 10px; margin-top: 5px; }
-    button { margin-top: 15px; padding: 10px 20px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
-    button:disabled { background-color: #aaa; cursor: not-allowed; }
-    #auth-status { margin-top: 10px; font-weight: bold; color: green; }
-    #browse-result { margin-top: 30px; border: 1px solid #ccc; padding: 15px; background-color: #f9f9f9; }
+    button { margin-top: 15px; padding: 10px 20px; }
+    #auth-status { font-weight: bold; margin-top: 10px; }
   </style>
 </head>
 <body>
-  <h1>📖</h1>
+  <h1>📝 Page Creator</h1>
 
   <form id="authForm">
     <label>Username:</label>
     <input type="text" id="username" required />
-
     <label>Password:</label>
     <input type="password" id="password" required />
-
-    <button type="submit" id="loginButton">Login</button>
+    <button type="submit">Login</button>
     <div id="auth-status"></div>
   </form>
 
   <hr>
 
   <form id="pageForm">
-    <label>Page Title:</label>
+    <label>Title:</label>
     <textarea id="title" rows="1" required></textarea>
-
-    <label>Page Content:</label>
+    <label>Content:</label>
     <textarea id="description" rows="4" required></textarea>
-
     <label>Optional Image:</label>
     <input type="file" id="image" accept="image/*" />
-
     <button type="submit" id="submitButton" disabled>Submit Page</button>
   </form>
-
-  <hr>
-
-  <form id="browseForm">
-    <label>Enter Page ID to View:</label>
-    <input type="text" id="pageId" required />
-
-    <button type="submit" id="browseButton" disabled>Browse Page</button>
-  </form>
-
-  <div id="browse-result"></div>
 
   <script>
     let authToken = null;
@@ -60,131 +41,63 @@
     document.getElementById("authForm").addEventListener("submit", async function (e) {
       e.preventDefault();
 
-      const username = document.getElementById("username").value;
-      const password = document.getElementById("password").value;
-
-      const loginRes = await fetch('http://localhost:8100/login', {
+      const res = await fetch("/login", {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ username, password })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: document.getElementById("username").value,
+          password: document.getElementById("password").value
+        })
       });
 
-      const authStatus = document.getElementById("auth-status");
-      if (!loginRes.ok) {
-        authToken = null;
-        authStatus.textContent = "Login failed.";
-        authStatus.style.color = "red";
-
-        document.getElementById("submitButton").disabled = true;
-        document.getElementById("browseButton").disabled = true;
+      const status = document.getElementById("auth-status");
+      if (!res.ok) {
+        status.textContent = "Login failed.";
+        status.style.color = "red";
         return;
       }
 
-      const data = await loginRes.json();
-      if (data.access_token) {
-        authToken = data.access_token;
-        authStatus.textContent = "Logged in.";
-        authStatus.style.color = "green";
-        document.getElementById("submitButton").disabled = false;
-        document.getElementById("browseButton").disabled = false;
-      } else {
-        authStatus.textContent = "Login failed: token missing.";
-        authStatus.style.color = "red";
-
-        document.getElementById("submitButton").disabled = true;
-        document.getElementById("browseButton").disabled = true;
-      }
+      const data = await res.json();
+      authToken = data.access_token;
+      status.textContent = "Login successful.";
+      status.style.color = "green";
+      document.getElementById("submitButton").disabled = false;
     });
 
     document.getElementById("pageForm").addEventListener("submit", async function (e) {
       e.preventDefault();
 
-      if (!authToken) {
-        alert("You must login first.");
-        return;
-      }
-
       const title = document.getElementById("title").value;
       const description = document.getElementById("description").value;
-      const imageFile = document.getElementById("image").files[0];
+      const image = document.getElementById("image").files[0];
 
-      function sendPage(htmlContent) {
-        fetch('http://localhost:8100/upload', {
+      const buildHtml = (imgTag = "") => `
+        <h1>${title}</h1>
+        <h2>Lore</h2>
+        <p>${description}</p>
+        <h2>Image</h2>
+        ${imgTag || "<p>No image provided.</p>"}
+      `;
+
+      const sendPage = async (htmlContent) => {
+        const res = await fetch("/upload", {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${authToken}`
           },
-          body: JSON.stringify({ title: title, html: htmlContent })
-        })
-        .then(res => {
-          if (res.ok) {
-            alert("Page submitted successfully!");
-          } else {
-            alert("Failed to submit page.");
-          }
-        })
-        .catch(() => alert("Network error during page submission."));
-      }
-
-      if (imageFile) {
-        const reader = new FileReader();
-        reader.onload = function () {
-          const imageTag = `<img src="${reader.result}" style="max-width:100%;" />`;
-          const htmlContent = `
-            <h1>${title}</h1>
-            <h2>Lore</h2>
-            <p>${description}</p>
-            <h2>Image</h2>
-            ${imageTag}
-          `;
-          sendPage(htmlContent);
-        };
-        reader.readAsDataURL(imageFile);
-      } else {
-        const htmlContent = `
-          <h1>${title}</h1>
-          <h2>Lore</h2>
-          <p>${description}</p>
-          <h2>Image</h2>
-          <p>No image provided.</p>
-        `;
-        sendPage(htmlContent);
-      }
-    });
-
-    document.getElementById("browseForm").addEventListener("submit", async function (e) {
-      e.preventDefault();
-
-      if (!authToken) {
-        alert("You must login first.");
-        return;
-      }
-
-      const pageId = document.getElementById("pageId").value;
-      const resultDiv = document.getElementById("browse-result");
-
-      try {
-        const response = await fetch(`http://localhost:8100/pages/page/${pageId}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${authToken}`
-          }
+          body: JSON.stringify({ title, html: htmlContent })
         });
 
-        if (!response.ok) {
-          resultDiv.innerHTML = `<p style="color:red;">Page not found or error occurred.</p>`;
-          return;
-        }
+        alert(res.ok ? "Page submitted successfully!" : "Failed to submit page.");
+      };
 
-        const pageData = await response.json();
-
-        resultDiv.innerHTML = `
-          <h2>Requested Page</h2>
-          <div>${pageData.html}</div>
-        `;
-      } catch (error) {
-        resultDiv.innerHTML = `<p style="color:red;">Failed to fetch page: ${error.message}</p>`;
+      if (image) {
+        const reader = new FileReader();
+        reader.onload = () => sendPage(buildHtml(`<img src="${reader.result}" style="max-width:100%;" />`));
+        reader.readAsDataURL(image);
+      } else {
+        sendPage(buildHtml());
       }
     });
   </script>

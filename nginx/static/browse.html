@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Browse Pages</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; }
+    label, input { display: block; width: 100%; margin-top: 10px; }
+    button { margin-top: 15px; padding: 10px; }
+    #results { margin-top: 20px; padding: 10px; border: 1px solid #ccc; background: #f9f9f9; }
+  </style>
+</head>
+<body>
+  <h1>🔎 Page Browser</h1>
+
+  <form id="fetchForm">
+    <label>Enter Page ID:</label>
+    <input type="text" id="pageId" required />
+    <button type="submit">Fetch Page</button>
+  </form>
+
+  <hr>
+
+  <form id="searchForm">
+    <label>Search Keyword:</label>
+    <input type="text" id="query" required />
+    <button type="submit">Search Pages</button>
+  </form>
+
+  <div id="results"></div>
+
+  <script>
+    const resultsDiv = document.getElementById("results");
+
+    document.getElementById("fetchForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const pageId = document.getElementById("pageId").value;
+      try {
+        const res = await fetch(`/pages/page/${pageId}`);
+        if (!res.ok) throw new Error("Not found");
+        const data = await res.json();
+        resultsDiv.innerHTML = `<h3>Page:</h3><div>${data.html}</div>`;
+      } catch (err) {
+        resultsDiv.innerHTML = `<p style="color:red;">Page not found.</p>`;
+      }
+    });
+
+    document.getElementById("searchForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+      const query = document.getElementById("query").value;
+      if (!query.trim()) return;
+      window.location.href = `/search?query_string=${encodeURIComponent(query)}`;
+    });
+  </script>
+</body>
+</html>
