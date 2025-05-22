@@ -49,6 +49,24 @@ services:
     depends_on:
       - zookeeper
 
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka-init
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.13
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command: >
+      bash -c "
+        echo 'Waiting for Kafka to be ready...' &&
+        sleep 10 &&
+        kafka-topics --create --if-not-exists --topic retrieve-pages-topic --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
+        kafka-topics --create --if-not-exists --topic search-pages-topic --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
+        echo 'Topics created successfully'
+      "
+
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.17.5
     container_name: elasticsearch
@@ -74,7 +92,7 @@ services:
       - zookeeper
     networks:
       shared-net:
-        ipv4_address: 192.168.56.6
+        ipv4_address: 192.168.56.22
     environment:
       - CONSUL_PORT=8500
       - CONSUL_HOST=192.168.56.2 
@@ -91,7 +109,7 @@ services:
       - zookeeper
     networks:
       shared-net:
-        ipv4_address: 192.168.56.3
+        ipv4_address: 192.168.56.21
     ports:
       - "9300:9300"
     environment:
@@ -102,18 +120,83 @@ services:
       - INSTANCE_HOST=192.168.56.2 
       - INSTANCE_PORT=9300
 
-  # dummy-page-adder:
-  #   image: python:3.11-alpine
-  #   container_name: page-adder
-  #   hostname: page-adder
-  #   expose:
-  #     - 8000
-  #   ports:
-  #     - "8001:8000"
-  #   networks:
-  #     shared-net:
-  #       ipv4_address: 192.168.56.10
-  #   command: python3 -m http.server 8000
+  consul:
+    image: hashicorp/consul:latest
+    container_name: consul
+    hostname: consul
+    ports:
+      - "8500:8500"       
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.2
+    command: "agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0"
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    hostname: zookeeper
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.12
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    hostname: kafka
+    ports:
+      - "9092:9092"
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.5
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,INTERNAL://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://192.168.56.5:9092,INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_MESSAGE_MAX_BYTES: 1048576000
+      KAFKA_REPLICA_FETCH_MAX_BYTES: 1048576000
+      KAFKA_MAX_REQUEST_SIZE: 1048576000
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      - zookeeper
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka-init
+    networks:
+      shared-net:
+        ipv4_address: 192.168.56.13
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command: >
+      bash -c "
+        echo 'Waiting for Kafka to be ready...' &&
+        sleep 10 &&
+        kafka-topics --create --if-not-exists --topic retrieve-pages-topic --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
+        kafka-topics --create --if-not-exists --topic search-pages-topic --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
+        echo 'Topics created successfully'
+      "
+
+  page_retrieval_service_db:
+    extends:
+      file: ./page_retrieval_service/docker-compose.yml
+      service: page_retrieval_service_db
 
   page_adding_service:
     build:
@@ -135,46 +218,10 @@ services:
       - CONSUL_HOST=192.168.56.2
       - CONSUL_PORT=8500
 
-  db:
-    image: postgres:14
-    environment:
-      POSTGRES_USER: myuser
-      POSTGRES_PASSWORD: mypassword
-      POSTGRES_DB: mydb
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U myuser -d mydb"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    networks:
-      - backend
-      - shared-net
-
-  x-page-retrieval-service: &page_retrieval_service_defaults
-    build:
-      context: ./page_retrieval_service
-    depends_on:
-      db:
-        condition: service_healthy
-      kafka:
-        condition: service_started
-      zookeeper:
-        condition: service_started
-    environment:
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_NAME: mydb
-      DB_USER: myuser
-      DB_PASSWORD: mypassword
-      CONSUL_HOST: 192.168.56.2
-      CONSUL_PORT: 8500
-
   page_retrieval_service_1:
-    <<: *page_retrieval_service_defaults
+    extends:
+      file: ./page_retrieval_service/docker-compose.yml
+      service: page_retrieval_service
     ports:
       - "8003:8001"
     hostname: page-retriever-1
@@ -182,9 +229,30 @@ services:
       shared-net:
         ipv4_address: 192.168.56.7
       backend:
+    depends_on:
+      page_retrieval_service_db:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
+      consul:
+        condition: service_started
+    environment:
+      DB_HOST: page_retrieval_service_db
+      DB_PORT: 5432
+      DB_NAME: mydb
+      DB_USER: myuser
+      DB_PASSWORD: mypassword
+      CONSUL_HOST: 192.168.56.2
+      CONSUL_PORT: 8500
+      INSTANCE_PORT: 8003
+      INSTANCE_HOST: 192.168.56.7
 
   page_retrieval_service_2:
-    <<: *page_retrieval_service_defaults
+    extends:
+      file: ./page_retrieval_service/docker-compose.yml
+      service: page_retrieval_service
     ports:
       - "8004:8001"
     hostname: page-retriever-2
@@ -192,9 +260,30 @@ services:
       shared-net:
         ipv4_address: 192.168.56.8
       backend:
+    depends_on:
+      page_retrieval_service_db:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
+      consul:
+        condition: service_started
+    environment:
+      DB_HOST: page_retrieval_service_db
+      DB_PORT: 5432
+      DB_NAME: mydb
+      DB_USER: myuser
+      DB_PASSWORD: mypassword
+      CONSUL_HOST: 192.168.56.2
+      CONSUL_PORT: 8500
+      INSTANCE_PORT: 8004
+      INSTANCE_HOST: 192.168.56.8
 
   page_retrieval_service_3:
-    <<: *page_retrieval_service_defaults
+    extends:
+      file: ./page_retrieval_service/docker-compose.yml
+      service: page_retrieval_service
     ports:
       - "8005:8001"
     hostname: page-retriever-3
@@ -202,6 +291,25 @@ services:
       shared-net:
         ipv4_address: 192.168.56.9
       backend:
+    depends_on:
+      page_retrieval_service_db:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      kafka-init:
+        condition: service_completed_successfully
+      consul:
+        condition: service_started
+    environment:
+      DB_HOST: page_retrieval_service_db
+      DB_PORT: 5432
+      DB_NAME: mydb
+      DB_USER: myuser
+      DB_PASSWORD: mypassword
+      CONSUL_HOST: 192.168.56.2
+      CONSUL_PORT: 8500
+      INSTANCE_PORT: 8005
+      INSTANCE_HOST: 192.168.56.9
 
   api-gateway:
     image: nginx:latest
@@ -238,16 +346,10 @@ services:
       - postgres-auth
     
   postgres-auth:
-    image: postgres:15
-    container_name: postgres-auth
-    environment:
-      POSTGRES_DB: auth_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-    ports:
-      - "5433:5432"
-    networks:
-      - shared-net
+    extends:
+      file: ./auth_service/docker-compose.yml
+      service: postgres-auth
+
 volumes:
   glusterfs-data1:
   glusterfs-data2:
@@ -257,6 +359,7 @@ volumes:
 
 networks:
   backend:
+  backend-auth:
 
   glusterfs-net:
     driver: bridge
