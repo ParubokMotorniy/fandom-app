@@ -31,7 +31,7 @@ services:
       - "9092:9092"
     networks:
       shared-net:
-        ipv4_address: 192.168.56.5
+        ipv4_address: 192.168.56.23
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
