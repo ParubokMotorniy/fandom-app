@@ -4,13 +4,11 @@
     "address": "192.168.56.5",
     "port": 9092,
     "check": {
-        "name": "kafka health check",
-        "http": "http://192.168.56.5:9092/",
-        "method": "GET",
-        "tls_skip_verify": true,
-        "interval": "10s",
-        "timeout": "3s",
-        "args": ["kafka-topics.sh", "--bootstrap-server", "localhost:9092", "--list"],
-        "DeregisterCriticalServiceAfter": "2m"
+      "name": "kafka health check",
+      "tcp": "192.168.56.5:9092",
+      "interval": "10s",
+      "timeout": "3s",
+      "DeregisterCriticalServiceAfter": "2m"
     }
-}
+  }
+  
