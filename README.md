@@ -1,27 +1,14 @@
 # fandom-app
 
-*Developer guidelines*:
-+ If any 3rdparty service needs to be registered with consul - add its configuration file to `consul/3rdparty_services`
-+ Similarly, if any key-value data is needed service-wise from consul - add it in JSON format (or whatever parasable format you want) to `consul/configs`
-
-+ Once you merge your service into master - make sure the corresponding dummy entry in the compose file is replaced with the real service (mind the host addresses).
-+ The same goes for the nginx configuration - as of now it makes calls to 'presumed' endpoints. Replace those with real ones on merge
-
-+ Both the basic frontend and nginx assume that the user is now only capable of uploading simple html files with embedded images.
+Overview of services:
++ `api-gateway` - all requests to the app are proxied through this service. Authentication of requests also happens here if needed, by asking `auth-service`.
++ `auth-service` - takes care of user registration, issuing of session tokens, login etc.
++ `page-adding-service` - new pages are forwarded to this service. It generates a unique ID for the page to be used across the app, and then forwards the page through `kafka` topics to `search-service` (priorly striping off image cintent of the page) and `page-retrievers`.
++ `page-retrievers` - this cluster of services takes care of serving pages at user request by IDs. If one fails - requests will be forwarded to its buddies.
++ `search-service` - this service runs its own instance of `elasticsearch` for quick indexing and retrieval (based on a query string) of pages. When presented with a query string, it generates a list of links to the relevant pages.
 
 Old design:
 ![old](https://github.com/user-attachments/assets/57c50d6f-8519-491a-89c0-198dae81d249)
 
 Refactored design:
 ![new](https://github.com/user-attachments/assets/d8e56c42-de4f-4025-a1a1-1562160d7b73)
-
-
-
-## Services
-
-| Service | Ports | Method | Endpoint | Description |
-|---|---|---|---|---|
-| Page Retrieval Service | 8001, 8003, 8004  | GET  | `/api/page/{page_id}`      | Retrieves the content of a specific page based on its ID. |
-|                        |                   | POST | `/api/internal/store-page` | idk |
-|                        |                   | GET  | `/api/pages/`              | Returns a list of all available pages. |
-| Page Adding Service    | 8002              | POST | `/api/add-page`            | Adds a new page to the DB. |
