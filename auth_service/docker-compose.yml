@@ -37,7 +37,7 @@ services:
     ports:
       - "5433:5432"  # Map host port 5433 to container's internal 5432
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql2/data
     networks:
       - backend-auth
 
