@@ -154,10 +154,15 @@ def logout(token: str = Depends(oauth2_scheme)):
 def health():
     return {"status": "Auth service is healthy"}
 
+@auth_service.get("/auth/session/health")
+def health():
+    return {"status": "Auth service is healthy"}
+
 @auth_service.on_event("startup")
 def startup():
+    print("Starting Auth service...")
     ch.register_consul_service(
-        "auth", os.getenv("INSTANCE_ID", "auth-0"), os.getenv("INSTANCE_HOST", "localhost"), int(os.getenv("INSTANCE_PORT", 9100)), 10, 30, "/health"
+        "auth", os.getenv("INSTANCE_ID", "auth-0"), os.getenv("INSTANCE_HOST", "localhost"), int(os.getenv("INSTANCE_PORT", 9100))
     )
     print("Auth service started")
 
