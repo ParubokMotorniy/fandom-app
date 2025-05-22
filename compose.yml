@@ -187,8 +187,9 @@ services:
       DB_PASSWORD: mypassword
       CONSUL_HOST: 192.168.56.2
       CONSUL_PORT: 8500
-      INSTANCE_PORT: 8003
+      INSTANCE_PORT: 8001
       INSTANCE_HOST: 192.168.56.7
+      INSTANCE_ID: 1
 
   page_retrieval_service_2:
     extends:
@@ -218,8 +219,9 @@ services:
       DB_PASSWORD: mypassword
       CONSUL_HOST: 192.168.56.2
       CONSUL_PORT: 8500
-      INSTANCE_PORT: 8004
+      INSTANCE_PORT: 8001
       INSTANCE_HOST: 192.168.56.8
+      INSTANCE_ID: 2
 
   page_retrieval_service_3:
     extends:
@@ -249,8 +251,9 @@ services:
       DB_PASSWORD: mypassword
       CONSUL_HOST: 192.168.56.2
       CONSUL_PORT: 8500
-      INSTANCE_PORT: 8005
+      INSTANCE_PORT: 8001
       INSTANCE_HOST: 192.168.56.9
+      INSTANCE_ID: 3
 
   api-gateway:
     image: nginx:latest
@@ -278,11 +281,14 @@ services:
     ports:
       - "9100:9100"  
     networks:
-      shared-net: {}  
+      shared-net:
+        ipv4_address: 192.168.56.25
       backend-auth: {}
     environment:
-      - CONSUL_PORT=8500
-      - CONSUL_HOST=192.168.56.2
+      CONSUL_PORT: 8500
+      CONSUL_HOST: 192.168.56.2
+      INSTANCE_HOST: 192.168.56.25
+      INSTANCE_PORT: 9100
     depends_on:
       - consul  
       - postgres-auth

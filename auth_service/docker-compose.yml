@@ -14,8 +14,6 @@ services:
       POSTGRES_HOST: postgres-auth
       POSTGRES_PORT: 5432  # Inside docker network, we connect to default PostgreSQL port
       INSTANCE_ID: "auth-0"
-      INSTANCE_HOST: "auth-service"
-      INSTANCE_PORT: 9100
     ports:
       - "9100:9100"
     depends_on:

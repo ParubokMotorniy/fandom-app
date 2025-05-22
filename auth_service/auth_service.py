@@ -161,9 +161,15 @@ def health():
 @auth_service.on_event("startup")
 def startup():
     print("Starting Auth service...")
+
     ch.register_consul_service(
-        "auth", os.getenv("INSTANCE_ID", "auth-0"), os.getenv("INSTANCE_HOST", "localhost"), int(os.getenv("INSTANCE_PORT", 9100))
+        "auth", 
+        os.getenv("INSTANCE_ID", "auth-0"), 
+        os.getenv("INSTANCE_HOST", "localhost"), 
+        int(os.getenv("INSTANCE_PORT", 9100)), 
+        30, 60, "/health"
     )
+
     print("Auth service started")
 
 @auth_service.on_event("shutdown")

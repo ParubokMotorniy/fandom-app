@@ -13,6 +13,10 @@ app = FastAPI(
 
 app.include_router(add_page.router, prefix="/api", tags=["Add Page"])
 
+@app.get("/health")
+async def check():
+    return "Adding is healthy"
+
 @app.on_event("startup")
 async def startup_event():
     # e.g., test DB connection, preload data, etc.
@@ -22,7 +26,7 @@ async def startup_event():
         "page_adding", 
         "page_adding_" + str(port - 8003),
         os.environ["INSTANCE_HOST"], 
-        port
+        port, 30, 60, "/health" 
     )
 
     print("Page Adding Service starting up...")
