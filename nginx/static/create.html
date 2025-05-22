@@ -33,13 +33,31 @@
       font-weight: bold;
       margin-top: 10px;
     }
+
+    hr {
+      margin-top: 30px;
+      margin-bottom: 30px;
+    }
   </style>
 </head>
 
 <body>
   <h1>📝 Page Creator</h1>
 
+  <form id="registerForm">
+    <h2>Register</h2>
+    <label>New Username:</label>
+    <input type="text" id="reg-username" required />
+    <label>New Password:</label>
+    <input type="password" id="reg-password" required />
+    <button type="submit">Register</button>
+    <div id="reg-status"></div>
+  </form>
+
+  <hr>
+
   <form id="authForm">
+    <h2>Login</h2>
     <label>Username:</label>
     <input type="text" id="username" required />
     <label>Password:</label>
@@ -48,9 +66,12 @@
     <div id="auth-status"></div>
   </form>
 
+  <button id="logoutButton" style="display:none;">Logout</button>
+
   <hr>
 
   <form id="pageForm">
+    <h2>Create New Page</h2>
     <label>Title:</label>
     <textarea id="title" rows="1" required></textarea>
     <label>Content:</label>
@@ -62,15 +83,69 @@
 
   <script>
     let authToken = null;
+    let sessionTimer = null;
+    const SESSION_DURATION = 3000;
+    let remainingTime = SESSION_DURATION;
+
+    function updateSessionUI() {
+      const status = document.getElementById("auth-status");
+      status.textContent = `Session expires in ${Math.floor(remainingTime / 60)}m ${remainingTime % 60}s`;
+      status.style.color = remainingTime < 60 ? "orange" : "green";
+    }
+
+    function startSessionTimer() {
+      clearInterval(sessionTimer);
+      remainingTime = SESSION_DURATION;
+      updateSessionUI();
+
+      sessionTimer = setInterval(() => {
+        remainingTime--;
+        if (remainingTime <= 0) {
+          clearInterval(sessionTimer);
+          forceLogout("Session expired.");
+        } else {
+          updateSessionUI();
+        }
+      }, 1000);
+    }
+
+    function forceLogout(reason = "Logged out.") {
+      authToken = null;
+      document.getElementById("auth-status").textContent = reason;
+      document.getElementById("auth-status").style.color = "gray";
+      document.getElementById("submitButton").disabled = true;
+      document.getElementById("logoutButton").style.display = "none";
+      clearInterval(sessionTimer);
+    }
+
+    document.getElementById("registerForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      const username = document.getElementById("reg-username").value;
+      const password = document.getElementById("reg-password").value;
+
+      const res = await fetch("/register", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      const regStatus = document.getElementById("reg-status");
+      if (res.ok) {
+        regStatus.textContent = "User registered successfully.";
+        regStatus.style.color = "green";
+      } else {
+        const err = await res.json();
+        regStatus.textContent = "Registration failed: " + (err.detail || "unknown error");
+        regStatus.style.color = "red";
+      }
+    });
 
     document.getElementById("authForm").addEventListener("submit", async function (e) {
       e.preventDefault();
 
       const res = await fetch("/login", {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
           username: document.getElementById("username").value,
           password: document.getElementById("password").value
@@ -86,9 +161,18 @@
 
       const data = await res.json();
       authToken = data.access_token;
-      status.textContent = "Login successful.";
-      status.style.color = "green";
       document.getElementById("submitButton").disabled = false;
+      document.getElementById("logoutButton").style.display = "inline-block";
+      startSessionTimer();
+    });
+
+    document.getElementById("logoutButton").addEventListener("click", async () => {
+      const res = await fetch("/logout", {
+        method: "POST",
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
+
+      forceLogout(res.ok ? "Logged out." : "Logout failed.");
     });
 
     document.getElementById("pageForm").addEventListener("submit", async function (e) {
@@ -99,12 +183,12 @@
       const image = document.getElementById("image").files[0];
 
       const buildHtml = (imgTag = "") => `
-        <h1>${title}</h1>
-        <h2>Lore</h2>
-        <p>${description}</p>
-        <h2>Image</h2>
-        ${imgTag || "<p>No image provided.</p>"}
-      `;
+      <h1>${title}</h1>
+      <h2>Lore</h2>
+      <p>${description}</p>
+      <h2>Image</h2>
+      ${imgTag || "<p>No image provided.</p>"}
+    `;
 
       const sendPage = async (htmlContent) => {
         const res = await fetch("/upload", {
@@ -127,6 +211,8 @@
         sendPage(buildHtml());
       }
     });
+  </script>
+
   </script>
 </body>
 
