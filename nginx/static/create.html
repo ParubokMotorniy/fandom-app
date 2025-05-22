@@ -1,16 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <title>Create Page</title>
   <style>
-    body { font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; }
-    label { display: block; margin-top: 15px; }
-    input, textarea { width: 100%; padding: 10px; margin-top: 5px; }
-    button { margin-top: 15px; padding: 10px 20px; }
-    #auth-status { font-weight: bold; margin-top: 10px; }
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    label {
+      display: block;
+      margin-top: 15px;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+    }
+
+    button {
+      margin-top: 15px;
+      padding: 10px 20px;
+    }
+
+    #auth-status {
+      font-weight: bold;
+      margin-top: 10px;
+    }
   </style>
 </head>
+
 <body>
   <h1>📝 Page Creator</h1>
 
@@ -43,8 +68,10 @@
 
       const res = await fetch("/login", {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
           username: document.getElementById("username").value,
           password: document.getElementById("password").value
         })
@@ -102,4 +129,5 @@
     });
   </script>
 </body>
+
 </html>
