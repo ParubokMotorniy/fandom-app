@@ -17,6 +17,10 @@ app = FastAPI(
 
 app.include_router(pages_router, prefix="/api", tags=["Pages"])
 
+@app.get("/health")
+async def check():
+    return {"status": "ok"}
+
 @app.on_event("startup")
 async def startup_event():
     async with async_engine.begin() as conn:
@@ -30,10 +34,10 @@ async def startup_event():
     print(f"port: {port}")
     #sevice-specific stuff
     ch.register_consul_service(
-        "page_retrieval", 
-        "page_retrieval_" + str(port - 8003),
+        f"page_retrieval" , 
+        f"page_retrieval_{os.environ['INSTANCE_ID']}",
         os.environ["INSTANCE_HOST"], 
-        port
+        port, 30, 60, "/health" 
     )
 
 @app.on_event("shutdown")
