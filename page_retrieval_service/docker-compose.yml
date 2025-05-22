@@ -20,8 +20,8 @@ services:
     ports:
       - "5432:5432"
     networks:
-      - backend
-      - shared-net
+      backend: {}
+      shared-net: {}
 
   page_retrieval_service:
     build:
@@ -37,14 +37,12 @@ services:
       CONSUL_HOST:   192.168.56.2
       CONSUL_PORT:   8500
     networks:
-      - backend
-      - shared-net
+      backend: {}
+      shared-net: {}
 
 volumes:
   postgres_data:
 
 networks:
-  backend:
-    external: true
-  shared-net:
-    external: true
+  backend: {}
+  shared-net: {}

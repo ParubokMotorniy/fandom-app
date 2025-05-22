@@ -235,7 +235,7 @@ services:
     networks:
       shared-net:
         ipv4_address: 192.168.56.7
-      backend:
+      backend: {}
     depends_on:
       page_retrieval_service_db:
         condition: service_healthy
@@ -266,7 +266,7 @@ services:
     networks:
       shared-net:
         ipv4_address: 192.168.56.8
-      backend:
+      backend: {}
     depends_on:
       page_retrieval_service_db:
         condition: service_healthy
@@ -297,7 +297,7 @@ services:
     networks:
       shared-net:
         ipv4_address: 192.168.56.9
-      backend:
+      backend: {}
     depends_on:
       page_retrieval_service_db:
         condition: service_healthy
@@ -344,7 +344,8 @@ services:
     ports:
       - "9100:9100"  
     networks:
-      - shared-net  
+      shared-net: {}  
+      backend-auth: {}
     environment:
       - CONSUL_PORT=8500
       - CONSUL_HOST=192.168.56.2
@@ -356,6 +357,8 @@ services:
     extends:
       file: ./auth_service/docker-compose.yml
       service: postgres-auth
+    networks:
+      backend-auth: {}
 
 volumes:
   glusterfs-data1:
@@ -366,7 +369,7 @@ volumes:
 
 networks:
   backend:
-  backend-auth:
+  backend-auth: 
 
   glusterfs-net:
     driver: bridge
