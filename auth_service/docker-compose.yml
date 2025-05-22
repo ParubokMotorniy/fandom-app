@@ -21,7 +21,7 @@ services:
     depends_on:
       - postgres-auth
     networks:
-      - backend
+      - backend-auth
     # Fix the host parameter and pass environment variables directly
     command: ["/bin/bash", "-c", "/wait-for-postgres.sh postgres-auth uvicorn main:auth_service --host 0.0.0.0 --port 9100"]
     
@@ -39,10 +39,10 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - backend
+      - backend-auth
 
 networks:
-  backend:
+  backend-auth:
 
 volumes:
   postgres_data:
