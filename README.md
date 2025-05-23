@@ -7,6 +7,10 @@ Overview of services:
 + `page-retrievers` - this cluster of services takes care of serving pages at user request by IDs. If one fails - requests will be forwarded to its buddies.
 + `search-service` - this service runs its own instance of `elasticsearch` for quick indexing and retrieval (based on a query string) of pages. When presented with a query string, it generates a list of links to the relevant pages.
 
+*Important*
+
+For `search-service` to work one has to copy the http certificate from elasticsearch to the `search` container. 
+
 Old design:
 ![old](https://github.com/user-attachments/assets/57c50d6f-8519-491a-89c0-198dae81d249)
 
